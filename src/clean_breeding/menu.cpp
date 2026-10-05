@@ -1,4 +1,5 @@
 ﻿#include "amoeboid.hpp"
+#include "config.hpp"
 #include "utilities/debug_console.hpp"
 #include "utilities/function_hook.hpp"
 
@@ -15,17 +16,77 @@ namespace {
     bool g_visible = false;
 }
 
+// Level numbers are fixed by DESIGN.md (0 Vanilla, 1 Mild, 2 None, 3 Hard); the menu lists them by difficulty.
+static const int LEVEL_ORDER[4] = {3, 0, 1, 2};
+static const char *const LEVEL_NAMES[4] = {"Hard", "Vanilla", "Mild", "None"};
+
+static bool level_combo(const char *label, int &level) {
+    int idx = 0;
+    for(int i = 0; i < 4; i++) {
+        if(LEVEL_ORDER[i] == level) idx = i;
+    }
+    bool changed = false;
+    if(ImGui::BeginCombo(label, LEVEL_NAMES[idx])) {
+        for(int i = 0; i < 4; i++) {
+            if(ImGui::Selectable(LEVEL_NAMES[i], i == idx) && LEVEL_ORDER[i] != level) {
+                level = LEVEL_ORDER[i];
+                changed = true;
+            }
+        }
+        ImGui::EndCombo();
+    }
+    return changed;
+}
+
 static void draw_menu() {
-    ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_FirstUseEver);
+    Config &c = config();
+    ImGui::SetNextWindowSize(ImVec2(380, 0), ImGuiCond_FirstUseEver);
     if(ImGui::Begin("Clean Breeding", &g_visible)) {
-        ImGui::Text("Version: %s", MOD_VERSION);
-        ImGui::Text("Game: %s (exe hash %s)", EXE_VERSION, G.exe_hash_mismatch_detected ? "MISMATCH" : "OK");
-        ImGui::Text("Signatures: OK");
-        ImGui::Text("Hooks: active");
+        ImGui::Text("Version %s | game %s (exe hash %s) | signatures OK | hooks active",
+            MOD_VERSION, EXE_VERSION, G.exe_hash_mismatch_detected ? "MISMATCH" : "OK");
+        ImGui::Separator();
+
+        bool changed = false;
+        changed |= level_combo("Inbreeding", c.inbreeding);
+        changed |= level_combo("Heredity", c.heredity);
+
+        struct Preset { const char *name; int inbreeding, heredity; };
+        static const Preset presets[] = {
+            {"Vanilla", 0, 0}, {"Assisted", 1, 1}, {"Free breeding", 2, 0}, {"Perfect genetics", 2, 2}, {"Hard mode", 3, 3},
+        };
+        for(const auto &p : presets) {
+            if(ImGui::Button(p.name)) {
+                c.inbreeding = p.inbreeding;
+                c.heredity = p.heredity;
+                changed = true;
+            }
+            ImGui::SameLine();
+        }
+        ImGui::NewLine();
+        if(changed) {
+            config_save_breeding();
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Cleanse");
+        int mode = static_cast<int>(c.cleanse_mode);
+        bool mode_changed = false;
+        mode_changed |= ImGui::RadioButton("Disorders", &mode, static_cast<int>(CleanseMode::Disorders));
+        ImGui::SameLine();
+        mode_changed |= ImGui::RadioButton("Defects", &mode, static_cast<int>(CleanseMode::Defects));
+        ImGui::SameLine();
+        mode_changed |= ImGui::RadioButton("All", &mode, static_cast<int>(CleanseMode::All));
+        if(mode_changed) {
+            c.cleanse_mode = static_cast<CleanseMode>(mode);
+            config_save_cleanse_mode();
+        }
+        ImGui::BeginDisabled();
+        ImGui::Button("Cleanse all cats");
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("(not available yet)");
     }
     ImGui::End();
 }
-
 MAKE_PHOOK(1, "SDL_GL_SwapWindow",
     bool, __cdecl, SDL_GL_SwapWindow,
     SDL_Window *window

@@ -6,6 +6,7 @@ add_library(${PROJECT_NAME} SHARED
     amoeboid.def
     clean_breeding.cpp
     breed.cpp
+    config.cpp
     menu.cpp
     snapshot.cpp
     utilities/mewjector_support.c

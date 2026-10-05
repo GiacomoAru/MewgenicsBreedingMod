@@ -85,18 +85,20 @@ Versione del gioco attesa: **1.1.21239**, SHA256 `4127cd6a792ae528bca6f65a8873dd
 
 ## S4. Dati: tabella difetti e config
 
-- [ ] `scripts/gen_defect_table.py`: legge `data/mutations/*.gon` dal gpak, riusando la logica di `scripts/gpak.py`, e scrive `src/clean_breeding/defect_table.hpp` con, per ogni gruppo, l'elenco degli id che hanno `tag birth_defect`, più `-2`. Il file generato va committato e deve avere in testa la versione del gioco.
-- [ ] Self-check nello script (`assert`): `eyes` contiene 700, 701, 704, 705, 706 e -2; `legs` contiene 700-707; `head` contiene 704.
-- [ ] `config.cpp`:
+- [x] `scripts/gen_defect_table.py`: legge `data/mutations/*.gon` dal gpak, riusando la logica di `scripts/gpak.py`, e scrive `src/clean_breeding/defect_table.hpp` con, per ogni gruppo, l'elenco degli id che hanno `tag birth_defect`, più `-2`. Il file generato va committato e deve avere in testa la versione del gioco.
+- [x] Self-check nello script (`assert`): `eyes` contiene 700, 701, 704, 705, 706 e -2; `legs` contiene 700-707; `head` contiene 704.
+- [x] `config.cpp`:
   - legge `config.ini` accanto alla DLL (percorso con `GetModuleFileNameW` dell'handle della DLL), usando `GetPrivateProfileStringW`;
   - scrive con `WritePrivateProfileStringW`;
   - parsa la whitelist (disordini: nomi; difetti: `gruppo:id`);
   - se mancano valori usa i default di DESIGN.md (tutto a 0).
-- [ ] Il `config.ini` di riferimento è quello in `mod/CleanBreeding/config.ini` (sezioni `[breeding]`, `[cleanse]`, `[whitelist]`). Non riscriverlo da zero: quello di S1 aveva perso la whitelist ed era salvato con BOM UTF-8, che rompe `GetPrivateProfileStringW`. Va salvato in UTF-8 **senza BOM**, oppure in UTF-16 LE con BOM; `install.ps1` non deve sovrascrivere un `config.ini` già presente.
-- [ ] Menù: 2 selettori a 4 livelli (Duro / Vanilla / Mite / Nessuno; valori 3 / 0 / 1 / 2 come in DESIGN.md), 5 pulsanti preset (compreso "Hard mode" 3/3), selettore della modalità Cleanse. Ogni cambio si salva subito nel `.ini`. Il pulsante Cleanse per ora è disabilitato.
+- [x] Il `config.ini` di riferimento è quello in `mod/CleanBreeding/config.ini` (sezioni `[breeding]`, `[cleanse]`, `[whitelist]`). Non riscriverlo da zero: quello di S1 aveva perso la whitelist ed era salvato con BOM UTF-8, che rompe `GetPrivateProfileStringW`. Va salvato in UTF-8 **senza BOM**, oppure in UTF-16 LE con BOM; `install.ps1` non deve sovrascrivere un `config.ini` già presente.
+- [x] Menù: 2 selettori a 4 livelli (Duro / Vanilla / Mite / Nessuno; valori 3 / 0 / 1 / 2 come in DESIGN.md), 5 pulsanti preset (compreso "Hard mode" 3/3), selettore della modalità Cleanse. Ogni cambio si salva subito nel `.ini`. Il pulsante Cleanse per ora è disabilitato.
 - [ ] Check:
-  - lo script di generazione passa i suoi assert;
-  - 🛑 nel gioco: un cambio nel menù aggiorna il `.ini`, e riavviando il gioco i valori restano.
+  - [x] lo script di generazione passa i suoi assert;
+  - [x] 🛑 nel gioco: un cambio nel menù aggiorna il `.ini`, e riavviando il gioco i valori restano. (Verificato: `.ini` scritto alle 13:24 con `inbreeding=2`; al riavvio il log mostra `Config: inbreeding=2 heredity=0`; l'utente conferma che il menù li mostra.)
+
+**Note S4 (2026-10-05):** `scripts/gpak.py` ha ora le funzioni `read_index()` e `read_file()` (la CLI è invariata). `gen_defect_table.py` genera `defect_table.hpp`: per gruppo gli id con `tag birth_defect` più -2; id come mouth 1500 (`tag animal`) sono esclusi; assert del piano passati, più uno su mouth 1500. `config.cpp` + `config_parse.hpp` (parsing puro) con test `src/tests/test_config.cpp`, eseguito da `scripts/build.ps1` in Debug (in RelWithDebInfo gli `assert` sono spenti). Il `.ini` resta tutto ASCII: `WritePrivateProfileStringW` lo riscrive come ANSI. Menù in inglese (Hard / Vanilla / Mild / None). La whitelist è letta ma non ancora usata da nessuna logica.
 
 ## S5. Simulatore (sezione Debug del menù)
 
@@ -113,7 +115,11 @@ Serve a misurare i tassi senza giocare decine di notti.
   - % di gattini con almeno un disordine, divisi in ereditati (presenti in un genitore) e nuovi;
   - % di gattini con almeno una parte difettosa, divisi in ereditati e nuovi;
   - media dei tratti negativi;
-  - % di tratti in whitelist.
+  - % di tratti in whitelist;
+  - **controllo abilità** (la mod non deve cambiarle):
+    - % di gattini il cui `actives_inherited[0]` è un'attiva di un genitore;
+    - % di gattini con una passiva (`passive_0` diverso da `"None"`) presa da un genitore;
+    - media delle 7 stat di `stats_heritable`.
 - [ ] Check (impostazioni Vanilla, N = 2000):
   - coppia non consanguinea, genitori senza disordini: disordini nuovi circa 2% (±1%);
   - coppia con coi noto: disordini nuovi circa `max(2%, 0.4·coi − 6%)` e difetti nuovi circa `min(1, 1.5·coi)`, con tolleranza ±3 punti;
@@ -130,7 +136,8 @@ Serve a misurare i tassi senza giocare decine di notti.
   - livello 2: disordini nuovi 0% (tranne quelli in whitelist) e difetti nuovi 0%;
   - livello 3 (Duro): i tassi "nuovi" corrispondono alla formula calcolata con `min(1, 2·coi)` (es. coi 0.25: difetti nuovi circa 75%);
   - con qualsiasi livello, `kitten->coi` è uguale al coi vero;
-  - i tassi "ereditati" sono invariati rispetto a Vanilla.
+  - i tassi "ereditati" sono invariati rispetto a Vanilla;
+  - con qualsiasi livello, il controllo abilità (attive, passive, stat) è uguale a Vanilla entro ±3 punti. Se non lo è 🛑.
 - [ ] Self-check di unità (funzione pura, senza gioco): `scaled_coi(coi, level)` e il filtro disordini su casi fissi, con un `assert` in un test in `src/tests/` o nella build Debug.
 
 ## S7. Asse Eredità
@@ -153,7 +160,8 @@ Serve a misurare i tassi senza giocare decine di notti.
   - genitore con un difetto non in whitelist: a livello 3 ereditati circa `p + (1 − p)·0.5`, dove `p` è il tasso Vanilla misurato;
   - genitore con un difetto non in whitelist: ereditati 0% a livello 2, circa la metà del Vanilla a livello 1;
   - genitore con `EternalYouth` o `head:704`: tassi uguali a Vanilla a tutti i livelli;
-  - dopo la simulazione i genitori sono identici a prima (confronta i loro byte prima e dopo).
+  - dopo la simulazione i genitori sono identici a prima (confronta i loro byte prima e dopo);
+  - con qualsiasi livello, il controllo abilità (attive, passive, stat) è uguale a Vanilla entro ±3 punti. Se non lo è 🛑.
 - [ ] 🛑 Test reale con l'utente: preset "Genetica perfetta", 2-3 notti, nessun gattino con tratti negativi fuori whitelist. Poi salva, ricarica, e controlla che il gioco non dia errori.
 - [ ] 🛑 Test reale "Hard mode" (3/3), 1-2 notti con una coppia consanguinea: il gioco non crasha, i gattini hanno più tratti negativi del solito, salva e ricarica OK.
 - [ ] **Report 002** (campagna di test S5-S7: tabelle dei tassi Duro / Vanilla / Mite / Nessuno per asse).

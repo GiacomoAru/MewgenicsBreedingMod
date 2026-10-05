@@ -1,4 +1,4 @@
-# Builds clean_breeding.dll (RelWithDebInfo) and copies it to mod\CleanBreeding\.
+﻿# Builds clean_breeding.dll (RelWithDebInfo) and copies it to mod\CleanBreeding\.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 #
@@ -27,6 +27,12 @@ Write-Host "Using $cmake"
 & $cmake -S $src -B $build -A x64
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 & $cmake --build $build --config RelWithDebInfo --parallel
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+# Unit checks (Debug, so assert() is active)
+& $cmake --build $build --config Debug --target test_config
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+& "$build\Debug\test_config.exe"
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 $out = Join-Path $root "mod\CleanBreeding"
