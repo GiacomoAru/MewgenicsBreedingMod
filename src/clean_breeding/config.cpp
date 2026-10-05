@@ -45,6 +45,9 @@ void config_load() {
     };
     c.inbreeding = level(L"inbreeding");
     c.heredity = level(L"heredity");
+#if CB_DEV_TOOLS
+    c.developer_tools = read_string(L"debug", L"developer_tools", L"0") == "1";
+#endif
     D::info("Config: inbreeding={} heredity={}",
         c.inbreeding, c.heredity);
 }

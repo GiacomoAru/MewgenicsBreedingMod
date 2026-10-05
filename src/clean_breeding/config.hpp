@@ -22,6 +22,9 @@ inline const char *level_label(int level) {
 struct Config {
     int inbreeding = 0;
     int heredity = 0;
+#if CB_DEV_TOOLS
+    bool developer_tools = false; // [debug] developer_tools=1 in config.ini; never settable from the menu
+#endif
 };
 
 Config &config();

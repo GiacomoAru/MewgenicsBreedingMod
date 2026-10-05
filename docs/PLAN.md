@@ -193,12 +193,14 @@ Decisione dell'utente del 2026-10-05: il Cleanse non si pubblica, e gli strument
   - Togli `whitelist_disorders`, il parsing di `[whitelist]` e ogni controllo "in whitelist" da config, hook, simulatore e test; togli la sezione `[whitelist]` da entrambi i `config.ini` (progetto e copia installata in Mewtator).
   - Ogni disordine e ogni difetto conta come negativo.
   - Nella suite, il caso "A: EternalYouth (whitelist)" diventa un caso normale di disordine: atteso 0% a livello 2, circa 7.5% a livello 1, circa 27.75% a livello 3.
-  - [ ] Rilancia la suite (N = 25000): tutto PASS.
+  - [x] Rilancia la suite (N = 25000): tutto PASS. (Fatto dall'utente il 2026-10-05 15:20-15:21 con Gentle, Off/Normal, Clean e Hardcore: 12 su 12 PASS in tutti. EternalYouth ereditato 7.5% / 15.3% / 0.0% / 27.7%; Cyclops come difetto normale 24.3% / 49.0% / 0.0% / 74.9%.)
 - [x] Il `config.ini` di release (`mod/CleanBreeding/config.ini`) contiene solo `[breeding]` (aggiornato: niente più `[whitelist]`). La sezione `[debug]` resta solo nella copia di test installata in Mewtator, oppure in un file `configs/config.dev.ini` che `install.ps1` copia quando si installa la build di sviluppo.
 - [ ] Check:
   - [x] la build di release compila e la DLL non contiene le stringhe `"Run all tests"`, `"test_resources"`, `"Cleanse"` (controlla con `findstr /c:` o con Python);
   - 🛑 nel gioco, con la build di release: F8 mostra solo livelli, preset e stato; il breeding funziona;
   - [x] la build di sviluppo continua ad avere simulatore e test suite.
+
+**Note S8/S8b (2026-10-05):** il menù e la riga di stato ora vivono anche con versione del gioco non supportata (gli hook SDL, gruppo 1, si installano per primi e sempre; con versione non supportata il menù mostra solo la riga rossa "Inactive"). Il flag `G.mod_active` dice se l'hook di `breed` è attivo. `level_label()` in `config.hpp` dà i nomi dei livelli (2 Off, 1 Reduced, 0 Normal, 3 Increased) a menù, log e report. `scripts/package.ps1` produce `outputs/CleanBreeding-0.1.0.zip` con solo `CleanBreeding/{clean_breeding.dll, config.ini, description.json}`. Il carattere "·" nelle righe del menù è scritto come byte UTF-8: da verificare a vista che il font di ImGui lo mostri.
 
 ## S8b. Nomi, testi del menù e spiegazioni
 
@@ -231,6 +233,8 @@ Decisione dell'utente del 2026-10-05: nomi più chiari e uniformi, piccole spieg
   - 🛑 l'utente apre il menù (build di release) e conferma che si capisce senza leggere la documentazione;
   - nessuna stringa del menù è più larga della finestra a 1280×720;
   - [x] la build di release non contiene "Developer tools", "Simulate", "Run all tests".
+
+**Note S8b, seconda tornata (2026-10-05):** font del menù x1.6 (`FontScaleMain`), finestra larga e centrata a ogni apertura, tooltip spostati a destra del cursore. L'header "Developer tools" nella build di sviluppo compare solo con `[debug] developer_tools=1` in `config.ini` (mai dal menù); nella release il codice non esiste. Il preset iniziale è Vanilla perché il `config.ini` del pacchetto ha `inbreeding=0` e `heredity=0` (e i valori mancanti valgono 0).
 
 ## S9. Packaging
 

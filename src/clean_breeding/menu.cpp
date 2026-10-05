@@ -1,5 +1,6 @@
 ﻿#include "amoeboid.hpp"
 #include "config.hpp"
+#include <algorithm>
 #include <iterator>
 #if CB_DEV_TOOLS
 #include <format>
@@ -31,6 +32,16 @@ static const char *const AXIS_TOOLTIPS[2][4] = { // [axis][index into LEVEL_ORDE
     {"Parents never pass on disorders or birth defects.", "Half the usual chance.", "Game default.", "Flaws get a second chance to pass on."},
 };
 
+// Tooltip placed to the right of the mouse cursor (the default position is under the game's own cursor).
+static void tip(const char *text) {
+    const ImVec2 mouse = ImGui::GetIO().MousePos;
+    ImGui::SetNextWindowPos(ImVec2(mouse.x + 48.0f, mouse.y + 6.0f));
+    if(ImGui::BeginTooltip()) {
+        ImGui::TextUnformatted(text);
+        ImGui::EndTooltip();
+    }
+}
+
 // returns true when the level changed
 static bool level_combo(const char *label, const char *description, int axis, int &level) {
     int current = 2;
@@ -45,7 +56,7 @@ static bool level_combo(const char *label, const char *description, int axis, in
                 changed = true;
             }
             if(ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s", AXIS_TOOLTIPS[axis][i]);
+                tip(AXIS_TOOLTIPS[axis][i]);
             }
         }
         ImGui::EndCombo();
@@ -58,7 +69,10 @@ static bool level_combo(const char *label, const char *description, int axis, in
 
 static void draw_menu() {
     Config &c = config();
-    ImGui::SetNextWindowSize(ImVec2(470, 0), ImGuiCond_FirstUseEver);
+    // Wide window, centered each time the menu opens.
+    const ImVec2 screen = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowSize(ImVec2(std::min(std::max(screen.x * 0.62f, 700.0f), 980.0f), 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2(screen.x * 0.5f, screen.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if(ImGui::Begin("Clean Breeding", &g_visible)) {
         if(G.mod_active) {
             ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.35f, 1.0f), "Active Â· Mewgenics %s", EXE_VERSION);
@@ -70,7 +84,7 @@ static void draw_menu() {
         ImGui::Separator();
 
         if(G.mod_active) {
-            ImGui::PushItemWidth(180.0f);
+            ImGui::PushItemWidth(ImGui::GetFontSize() * 11.0f);
             bool changed = false;
             changed |= level_combo("Inbreeding penalties", "New disorders and birth defects caused by breeding related cats.", 0, c.inbreeding);
             ImGui::Spacing();
@@ -94,7 +108,7 @@ static void draw_menu() {
                     changed = true;
                 }
                 if(ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("%s", p.tooltip);
+                    tip(p.tooltip);
                 }
                 if(i + 1 < std::size(presets)) ImGui::SameLine();
             }
@@ -106,6 +120,8 @@ static void draw_menu() {
         }
 
 #if CB_DEV_TOOLS
+        // Developer tools: only when config.ini says so ([debug] developer_tools=1), never from the menu.
+        if(c.developer_tools) {
         ImGui::Separator();
         if(ImGui::CollapsingHeader("Developer tools")) {
             static int64_t parent_a = 0, parent_b = 0;
@@ -131,7 +147,7 @@ static void draw_menu() {
             ImGui::SameLine();
             ImGui::TextDisabled("(?)");
             if(ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("Coefficient of inbreeding of the pair (0..1), same as its kitten's 'Inbred' value.\n"
+                tip("Coefficient of inbreeding of the pair (0..1), same as its kitten's 'Inbred' value.\n"
                                   "0 unrelated, 0.0625 cousins, 0.125 uncle/niece or half siblings,\n"
                                   "0.25 siblings or parent/child, 0.5 same cat.");
             }
@@ -169,6 +185,7 @@ static void draw_menu() {
                 ImGui::EndChild();
             }
         }
+        }
 #endif
     }
     ImGui::End();
@@ -181,6 +198,7 @@ MAKE_PHOOK(1, "SDL_GL_SwapWindow",
     if(!g_initialized) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        ImGui::GetStyle().FontScaleMain = 1.6f; // larger text: the game runs at high resolutions
         ImGuiIO &io = ImGui::GetIO();
         io.IniFilename = nullptr;
         io.LogFilename = nullptr;
