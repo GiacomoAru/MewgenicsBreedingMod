@@ -1,4 +1,5 @@
-﻿#include "snapshot.hpp"
+﻿#include "simulator.hpp"
+#include "snapshot.hpp"
 #include "amoeboid.hpp"
 #include "types/glaiel.hpp"
 #include "types/glaiel_house.hpp"
@@ -301,6 +302,27 @@ void apply_test_resources_once() {
     }
     done = true;
 
+    // [debug] test_simulation=<keyA>:<keyB>:<coi>:<N>;...  queues simulator runs (results go to the log)
+    wchar_t sims[1024];
+    GetPrivateProfileStringW(L"debug", L"test_simulation", L"", sims, 1024, ini.c_str());
+    std::string sim_spec = convert_utf16_wstring_to_utf8_string(sims);
+    for(size_t p = 0; p < sim_spec.size();) {
+        size_t end = sim_spec.find(';', p);
+        std::string item = sim_spec.substr(p, end == std::string::npos ? std::string::npos : end - p);
+        p = end == std::string::npos ? sim_spec.size() : end + 1;
+        SimRequest r;
+        long long a = 0, b = 0;
+        int n = 0;
+        if(sscanf_s(item.c_str(), " %lld:%lld:%lf:%d", &a, &b, &r.coi, &n) == 4) {
+            r.parent_a = a;
+            r.parent_b = b;
+            r.n = n;
+            simulator_enqueue(r);
+        } else {
+            D::warn("test_simulation: bad item '{}'", item);
+        }
+    }
+
     // [debug] test_disorders=<key>:<slot 0|1>:<DisorderName>:<level>,...  writes the disorder slots of live cats
     // (same technique as cat-bridge SET_PASSIVE: destroy() + construct(), game-heap string). Test slot only.
     wchar_t list[4096];
@@ -338,6 +360,7 @@ void apply_test_resources_once() {
 
 void on_update_frame() {
     ++S.frame;
+    simulator_tick();
     apply_test_resources_once();
     if(S.pending.empty()) {
         return;
@@ -390,6 +413,24 @@ void on_update_frame() {
 }
 
 } // namespace
+
+CatData *find_cat(int64_t sql_key) {
+    auto cats = collect_all_cats();
+    auto it = cats.find(sql_key);
+    return it == cats.end() ? nullptr : it->second.cat;
+}
+
+std::vector<CatData *> all_cats() {
+    std::vector<CatData *> r;
+    for(const auto &[k, f] : collect_all_cats()) {
+        r.push_back(f.cat);
+    }
+    return r;
+}
+
+size_t cat_count() {
+    return collect_all_cats().size();
+}
 
 void snapshot_note_breed(int call_no, const CatData &parent_a, const CatData &parent_b, double coi_param, const CatData &kitten) {
     BreedEvent e;

@@ -48,3 +48,25 @@ Setup: `[debug] test_disorders` wrote disorders into 8 cats at launch (cat-bridg
 - Kitten at `breed` return equals the final cat in all 5 calls (cats 975, 976, 978, 979, 980: 15 of 15 part slots and the disorder names equal). Cat 977 is not from `breed` (daily stray, hypothesis from the gap in keys).
 
 Also seen: the 2 defects above are new (neither parent had a 700+ id in those slots) and appeared with coi 0.25 (formula: 37.5% per kitten for a new defect), consistent with the inbreeding mechanic.
+
+## S5 simulator baselines (2026-10-05, Vanilla behaviour, N = 10000 kittens per case, 5 synthetic parent pairs each)
+
+Source: test suite of `simulator.cpp`, log of 2026-10-05 (menu level was inbreeding=2 but the breed hook did not act on settings yet, so these are the unmodified game rates). Parents are random game strays cleaned of disorders and bad parts.
+
+| Case | Result | Expected (DESIGN) |
+|---|---|---|
+| clean x clean, coi 0 | new disorders 2.3%, new bad parts 0% | 2%, 0% |
+| coi 0.125 | 1.9%, 18.8% | 2%, 18.75% |
+| coi 0.25 | 4.2%, 37.6% | 4%, 37.5% |
+| coi 0.5 | 14.3%, 74.8% | 14%, 75% |
+| coi 1.0 | 33.8%, 100% | 34%, 100% |
+| A: Pox, coi 0 | inherited 15.0% (new 2.0%) | 15% |
+| A: Pox, B: Flu | inherited (any) 28.0% | 27.75% |
+| A: Pox+Flu | inherited 15.6% | 15% |
+| A: EternalYouth | inherited 14.8% | 15% |
+
+Facts verified by these rates (the formulas of DESIGN.md, which came from the wiki, match the game): disorder inherited 15% per parent, one disorder per parent; inbreeding disorder `max(2%, 0.4*coi - 6%)` up to 34%; new defect `min(1, 1.5*coi)`.
+
+Baselines for S7 (defective parent x clean parent, coi 0, share of kittens that inherit at least one defective slot): legs 700 on all 4 leg/arm slots 73.4%; eyes 701 48.7%; head 704 49.2%. So each independent slot group (legs, arms) is inherited from a defective parent about 49% of the time (73.4% = 1 - (1-p)^2 with p about 0.49, hypothesis: legs and arms are two independent groups), a bit under 50%.
+
+Ability check baselines (the mod must not change them): active from a parent 21-22%, passive from a parent 0% (synthetic strays have no passives). Stable across all cases and coi values.

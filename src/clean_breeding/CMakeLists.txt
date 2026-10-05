@@ -8,6 +8,7 @@ add_library(${PROJECT_NAME} SHARED
     breed.cpp
     config.cpp
     menu.cpp
+    simulator.cpp
     snapshot.cpp
     utilities/mewjector_support.c
     utilities/pe_view.cpp

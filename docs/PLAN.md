@@ -15,6 +15,7 @@ Riferimenti (in `reference/`, sola lettura, non vanno in git):
 | `mewgenics_randomize_item_picks/cpp` | **Template del progetto**: build CMake, `amoeboid.cpp/.hpp` (caricamento, controllo hash, signature scan, hook Detours), `types/`, `utilities/`, `lib/` |
 | `mewgenics_analysis/cpp/amoeba` | Signature extra in `amoeba.hpp` (righe 34-63: `CatData__breed`, `CatData_ctor/dtor`, `unk_init`, `unk_init_bodyparts`, RNG xoshiro); overlay ImGui in `amoeba_imgui.cpp` (hook `SDL_GL_SwapWindow` e `SDL_PollEvent`, righe ~2270-2380); `ffi/cat_factory.cpp` (chiamata diretta a `breed`, `make_kitten`, backup dell'RNG); `types/glaiel_cat.hpp` (struct `CatData` completa) |
 | `mewgenics-cat-bridge/mod/cat_bridge` | `collect_all_cats()` (tutti i gatti in memoria), `SET_PASSIVE` e `SET_PART` (modifica sicura di stringhe MSVC e parti); `docs/DEVELOPMENT.md` (fatti verificati) |
+| [Gist SciresM](https://gist.github.com/SciresM/95a9dbba22937420e75d4da617af1397) (online) | Descrizione della funzione `breed` ricavata dal codice del gioco: ordine dei tiri, disordini, difetti, abilità. Utile per interpretare i log di S3 e i tassi del simulatore |
 | `MewgenicsBreedingManager/src` | Solo per confronto: formule (`breeding.py`), riconoscimento dei difetti (`save_parser.py` ~righe 880-920, 1207-1330) |
 
 Versione del gioco attesa: **1.1.21239**, SHA256 `4127cd6a792ae528bca6f65a8873dd61789591937d87656c2b586a5e30eb77ea` (verificata il 2026-10-05).
@@ -104,14 +105,14 @@ Versione del gioco attesa: **1.1.21239**, SHA256 `4127cd6a792ae528bca6f65a8873dd
 
 Serve a misurare i tassi senza giocare decine di notti.
 
-- [ ] Porta `make_kitten` / `new_default_cat` e l'hook che sopprime la name history da `amoeba/ffi/cat_factory.cpp`.
-- [ ] Sezione "Debug" collassabile:
+- [x] Porta `make_kitten` / `new_default_cat` e l'hook che sopprime la name history da `amoeba/ffi/cat_factory.cpp`.
+- [x] (con deviazioni: tendine con i nomi dei gatti al posto dei campi sql_key; coi inserito a mano o con pulsanti, perché calcolarlo richiede di portare il pedigree del gioco; pulsante "Fill from last breeding" al posto di "prima coppia con coi > 0.25", con l'ultima coppia salvata in `last_breed.txt`) Sezione "Debug" collassabile:
   - due campi sql_key per i genitori, più un pulsante che riempie con la prima coppia trovata con coi > 0.25;
   - `N` (default 1000);
   - pulsante "Simula".
 
   Il simulatore chiama `breed` **attraverso il nostro hook**, quindi con le impostazioni correnti, su gattini temporanei che vengono distrutti subito. Salva e ripristina lo stato dell'RNG come fa Amoeba.
-- [ ] Mostra:
+- [x] Mostra:
   - % di gattini con almeno un disordine, divisi in ereditati (presenti in un genitore) e nuovi;
   - % di gattini con almeno una parte difettosa, divisi in ereditati e nuovi;
   - media dei tratti negativi;
@@ -120,7 +121,7 @@ Serve a misurare i tassi senza giocare decine di notti.
     - % di gattini il cui `actives_inherited[0]` è un'attiva di un genitore;
     - % di gattini con una passiva (`passive_0` diverso da `"None"`) presa da un genitore;
     - media delle 7 stat di `stats_heritable`.
-- [ ] Check (impostazioni Vanilla, N = 2000):
+- [x] (eseguito con la suite automatica "Run all tests" su genitori finti, N = 10000 per caso; tutti i tassi nella tolleranza, tabella in `docs/re_notes.md`) Check (impostazioni Vanilla, N = 2000):
   - coppia non consanguinea, genitori senza disordini: disordini nuovi circa 2% (±1%);
   - coppia con coi noto: disordini nuovi circa `max(2%, 0.4·coi − 6%)` e difetti nuovi circa `min(1, 1.5·coi)`, con tolleranza ±3 punti;
   - genitore con 1 disordine: ereditati circa 15%.
@@ -192,6 +193,7 @@ Serve a misurare i tassi senza giocare decine di notti.
   - livelli e whitelist;
   - avviso sul backup;
   - crediti (polymeric, z3ndroot, MIT).
+- [ ] Prima di pacchettizzare: togliere da `mod/CleanBreeding/config.ini` la sezione `[debug]` (`test_resources`, `test_disorders`, `test_simulation`: sono strumenti di test per lo slot 1) e valutare se tenere nel DLL finale `snapshot.cpp` e i test helper (default spenti).
 - [ ] `scripts/package.ps1`: build, poi zip di `mod/CleanBreeding/` in `outputs/CleanBreeding-<versione>.zip`.
 - [ ] Check: installazione pulita dallo zip in Mewtator su un'altra copia della cartella mods; il gioco parte e il menù funziona.
 

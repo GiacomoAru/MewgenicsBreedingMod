@@ -1,5 +1,9 @@
 ﻿#include "amoeboid.hpp"
+#include <format>
+
+#include "breed.hpp"
 #include "config.hpp"
+#include "simulator.hpp"
 #include "utilities/debug_console.hpp"
 #include "utilities/function_hook.hpp"
 
@@ -84,6 +88,70 @@ static void draw_menu() {
         ImGui::Button("Cleanse all cats");
         ImGui::EndDisabled();
         ImGui::TextDisabled("(not available yet)");
+
+        ImGui::Separator();
+        if(ImGui::CollapsingHeader("Debug: breeding simulator")) {
+            static int64_t parent_a = 0, parent_b = 0;
+            static double coi = 0;
+            static int n = 1000;
+            simulator_want_cats();
+            auto cats = simulator_cats();
+            auto cat_combo = [&](const char *label, int64_t &key) {
+                std::string preview = std::format("#{}", key);
+                for(const auto &ci : cats) {
+                    if(ci.key == key) preview = ci.label;
+                }
+                if(ImGui::BeginCombo(label, preview.c_str())) {
+                    for(const auto &ci : cats) {
+                        if(ImGui::Selectable(ci.label.c_str(), ci.key == key)) key = ci.key;
+                    }
+                    ImGui::EndCombo();
+                }
+            };
+            cat_combo("Parent A", parent_a);
+            cat_combo("Parent B", parent_b);
+            ImGui::InputDouble("coi (pair kinship)", &coi, 0.0, 0.0, "%.4f");
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if(ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("Coefficient of inbreeding of the pair (0..1), same as its kitten's 'Inbred' value.\n"
+                                  "0 unrelated, 0.0625 cousins, 0.125 uncle/niece or half siblings,\n"
+                                  "0.25 siblings or parent/child, 0.5 same cat.");
+            }
+            for(double v : {0.0, 0.0625, 0.125, 0.25, 0.5}) {
+                if(ImGui::SmallButton(std::format("{}##coi{}", v, v).c_str())) coi = v;
+                ImGui::SameLine();
+            }
+            ImGui::NewLine();
+            ImGui::InputInt("N", &n);
+            if(ImGui::Button("Fill from last breeding") && g_last_breed.valid) {
+                parent_a = g_last_breed.parent_a;
+                parent_b = g_last_breed.parent_b;
+                coi = g_last_breed.coi;
+            }
+            if(!g_last_breed.valid) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("(no breeding seen yet)");
+            }
+            SimStatus st = simulator_status();
+            ImGui::BeginDisabled(st.running);
+            if(ImGui::Button("Simulate")) {
+                simulator_start({parent_a, parent_b, coi, n});
+            }
+            ImGui::SameLine();
+            if(ImGui::Button("Run all tests (N per case)")) {
+                simulator_run_suite(n);
+            }
+            ImGui::EndDisabled();
+            if(st.running) {
+                ImGui::ProgressBar(st.total ? static_cast<float>(st.done) / st.total : 0.f);
+            }
+            if(!st.report.empty()) {
+                ImGui::BeginChild("sim_report", ImVec2(0, 280), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+                ImGui::TextUnformatted(st.report.c_str());
+                ImGui::EndChild();
+            }
+        }
     }
     ImGui::End();
 }

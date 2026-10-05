@@ -1,16 +1,42 @@
 ﻿#include "amoeboid.hpp"
+#include "breed.hpp"
 #include "snapshot.hpp"
 #include "types/glaiel.hpp"
 #include "types/msvc.hpp"
 #include "utilities/debug_console.hpp"
 #include "utilities/function_hook.hpp"
 
+#include <windows.h>
+
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <string>
 
 // Hook on glaiel::CatData::breed.
 // S3: read-only probe. Logs the inputs and outputs of every call, changes nothing.
+
+bool g_breed_sim_active = false;
+LastBreed g_last_breed;
+
+// The last real breeding is kept in last_breed.txt next to the DLL, so the menu can fill the simulator
+// even right after a game launch.
+static std::filesystem::path last_breed_path() {
+    wchar_t buf[MAX_PATH];
+    GetModuleFileNameW(reinterpret_cast<HMODULE>(G.dll_base_va), buf, MAX_PATH);
+    return std::filesystem::path(buf).parent_path() / "last_breed.txt";
+}
+
+void breed_load_last() {
+    std::ifstream in(last_breed_path());
+    LastBreed lb;
+    if(in >> lb.parent_a >> lb.parent_b >> lb.coi) {
+        lb.valid = true;
+        g_last_breed = lb;
+    }
+}
 
 static const char *const PART_NAMES[14] = {
     "body", "head", "tail", "leg1", "leg2", "arm1", "arm2",
@@ -65,8 +91,15 @@ MAKE_SHOOK(0, ADDRESS_glaiel__CatData__breed,
     void, __cdecl, glaiel__CatData__breed,
     CatData *kitten, CatData *parent_a, CatData *parent_b, double coi, void *furniture_effects
 ) {
+    if(g_breed_sim_active) {
+        // simulator call: no logging, no snapshot
+        glaiel__CatData__breed_hook.orig(kitten, parent_a, parent_b, coi, furniture_effects);
+        return;
+    }
     static int call_no = 0;
     ++call_no;
+    g_last_breed = {true, parent_a->sql_key, parent_b->sql_key, coi};
+    std::ofstream(last_breed_path()) << parent_a->sql_key << ' ' << parent_b->sql_key << ' ' << std::format("{:.17g}", coi) << '\n';
     D::info("[breed #{}] coi_param={} kitten_ptr={} A={} B={}", call_no, coi,
         static_cast<void *>(kitten), parent_a->sql_key, parent_b->sql_key);
     log_cat("parentA", *parent_a);

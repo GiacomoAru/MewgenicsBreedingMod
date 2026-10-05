@@ -1,4 +1,5 @@
 ﻿#include "amoeboid.hpp"
+#include "breed.hpp"
 #include "config.hpp"
 #include "utilities/debug_console.hpp"
 
@@ -6,5 +7,6 @@
 
 void clean_breeding_init() {
     config_load();
+    breed_load_last();
     D::info("Clean Breeding loaded (version {}, exe hash OK, game {})", MOD_VERSION, EXE_VERSION);
 }
