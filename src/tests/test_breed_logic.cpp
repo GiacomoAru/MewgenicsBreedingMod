@@ -1,0 +1,42 @@
+﻿#include "clean_breeding/breed_logic.hpp"
+
+#include <cassert>
+#include <cmath>
+#include <cstdio>
+
+int main() {
+    // scaled_coi
+    assert(scaled_coi(0.25, 0) == 0.25);
+    assert(scaled_coi(0.25, 1) == 0.125);
+    assert(scaled_coi(0.25, 2) == 0.0);
+    assert(scaled_coi(0.25, 3) == 0.5);
+    assert(scaled_coi(0.75, 3) == 1.0); // capped
+    assert(scaled_coi(0.3, 9) == 0.3);  // unknown level = Vanilla
+
+    const std::vector<std::string> parents = {"Pox", "None", "Flu"};
+    const std::set<std::string> wl = {"EternalYouth"};
+
+    // new disorder removed, inherited one kept
+    DisorderSlot a[2] = {{"Pox", 1}, {"Schizophrenia", 1}};
+    assert(remove_new_disorders(a, parents, wl) == 1);
+    assert(a[0].name == "Pox" && a[1].is_none() && a[1].level == 1);
+
+    // inherited in slot 1, new in slot 0: new removed, slot 1 moves to slot 0
+    DisorderSlot b[2] = {{"Schizophrenia", 1}, {"Flu", 2}};
+    assert(remove_new_disorders(b, parents, wl) == 1);
+    assert(b[0].name == "Flu" && b[0].level == 2 && b[1].is_none());
+
+    // whitelisted new disorder is kept
+    DisorderSlot c[2] = {{"EternalYouth", 1}, {"Chungus", 1}};
+    assert(remove_new_disorders(c, parents, wl) == 1);
+    assert(c[0].name == "EternalYouth" && c[1].is_none());
+
+    // both new: both removed; nothing to do on an empty kitten
+    DisorderSlot d[2] = {{"A", 1}, {"B", 1}};
+    assert(remove_new_disorders(d, parents, wl) == 2 && d[0].is_none() && d[1].is_none());
+    DisorderSlot e[2];
+    assert(remove_new_disorders(e, parents, wl) == 0 && e[0].is_none());
+
+    std::puts("test_breed_logic OK");
+    return 0;
+}

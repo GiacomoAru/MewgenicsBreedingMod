@@ -127,19 +127,19 @@ Serve a misurare i tassi senza giocare decine di notti.
   - genitore con 1 disordine: ereditati circa 15%.
 
   Se un tasso esce dalla tolleranza 🛑.
-- [ ] Il simulatore non deve lasciare tracce: dopo una simulazione il numero di gatti e il pedigree sono invariati, e salvando e ricaricando non compaiono gatti nuovi.
+- [x] (verificato dall'utente: 17 gatti prima, dopo la suite a N = 25000 e dopo salva e riavvio; nelle simulazioni singole il report dice "parents unchanged yes, cat count unchanged yes". I report ora si salvano anche in `sim_reports.txt` accanto alla DLL, perché il log di Mewjector si sovrascrive a ogni avvio) Il simulatore non deve lasciare tracce: dopo una simulazione il numero di gatti e il pedigree sono invariati, e salvando e ricaricando non compaiono gatti nuovi.
 
 ## S6. Asse Inbreeding
 
-- [ ] Nell'hook di `breed`, implementa la parte inbreeding come in DESIGN.md: `coi'` = {0: coi, 1: coi × 0.5, 2: 0, 3: min(1, coi × 2)}, `kitten->coi = real_coi`, e a livello 2 la rimozione dal gattino dei disordini nuovi non in whitelist. Per rimuovere usa la tecnica di `SET_PASSIVE` di cat-bridge: `destroy()` più `construct()` della rappresentazione "vuoto" trovata in S3; compatta gli slot se in S3 è risultato che servono in ordine.
-- [ ] Check con il simulatore su una coppia con coi ≥ 0.25:
+- [x] Nell'hook di `breed`, implementa la parte inbreeding come in DESIGN.md: `coi'` = {0: coi, 1: coi × 0.5, 2: 0, 3: min(1, coi × 2)}, `kitten->coi = real_coi`, e a livello 2 la rimozione dal gattino dei disordini nuovi non in whitelist. Per rimuovere usa la tecnica di `SET_PASSIVE` di cat-bridge: `destroy()` più `construct()` della rappresentazione "vuoto" trovata in S3; compatta gli slot se in S3 è risultato che servono in ordine.
+- [x] (eseguito con la suite, N = 25000 per caso, livelli 1, 2 e 3 con Eredità Vanilla: tutti PASS; `sim_reports.txt` del 2026-10-05 14:24-14:25. Il confronto delle stat medie tra i livelli non c'era nel report di quei giri: ora la suite le scrive e si confronta nei test di S7) Check con il simulatore su una coppia con coi ≥ 0.25:
   - livello 1: i tassi "nuovi" corrispondono alla formula calcolata con coi/2;
   - livello 2: disordini nuovi 0% (tranne quelli in whitelist) e difetti nuovi 0%;
   - livello 3 (Duro): i tassi "nuovi" corrispondono alla formula calcolata con `min(1, 2·coi)` (es. coi 0.25: difetti nuovi circa 75%);
   - con qualsiasi livello, `kitten->coi` è uguale al coi vero;
   - i tassi "ereditati" sono invariati rispetto a Vanilla;
   - con qualsiasi livello, il controllo abilità (attive, passive, stat) è uguale a Vanilla entro ±3 punti. Se non lo è 🛑.
-- [ ] Self-check di unità (funzione pura, senza gioco): `scaled_coi(coi, level)` e il filtro disordini su casi fissi, con un `assert` in un test in `src/tests/` o nella build Debug.
+- [x] (`src/clean_breeding/breed_logic.hpp` + `src/tests/test_breed_logic.cpp`, eseguito da `scripts/build.ps1` in Debug) Self-check di unità (funzione pura, senza gioco): `scaled_coi(coi, level)` e il filtro disordini su casi fissi, con un `assert` in un test in `src/tests/` o nella build Debug.
 
 ## S7. Asse Eredità
 

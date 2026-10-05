@@ -1,6 +1,7 @@
 ﻿#include "simulator.hpp"
 #include "amoeboid.hpp"
 #include "breed.hpp"
+#include "breed_logic.hpp"
 #include "config.hpp"
 #include "defect_table.hpp"
 #include "snapshot.hpp"
@@ -12,10 +13,14 @@
 #include "utilities/function_hook.hpp"
 #include "utilities/portal.hpp"
 
+#include <windows.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <deque>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -122,6 +127,7 @@ struct Acc {
     int64_t disorder_total = 0, defect_slots_total = 0;
     int64_t negative_total = 0, negative_whitelisted = 0;
     int active_from_parent = 0, passive_from_parent = 0;
+    int coi_wrong = 0; // kitten->coi different from the real pair coi
     double stat_sum[7] = {};
 };
 
@@ -139,8 +145,9 @@ struct SimState {
 
 std::mutex g_mutex;
 
-void add_kitten(Acc &acc, const CatData &k, const CatData &a, const CatData &b) {
+void add_kitten(Acc &acc, const CatData &k, const CatData &a, const CatData &b, double real_coi) {
     acc.n++;
+    acc.coi_wrong += std::abs(k.coi - real_coi) > 1e-12;
     // disorders: inherited = same name as a disorder of a parent
     const MsvcReleaseModeXString *kd[2] = {&k.mutation_0, &k.mutation_1};
     const MsvcReleaseModeXString *pd[4] = {&a.mutation_0, &a.mutation_1, &b.mutation_0, &b.mutation_1};
@@ -219,7 +226,7 @@ std::string make_report(const SimRequest &r, const Acc &x, bool parents_unchange
     s += std::format("Ability check: active from a parent {:.1f}%  passive from a parent {:.1f}%\n", pct(x.active_from_parent), pct(x.passive_from_parent));
     s += std::format("Mean heritable stats: str {:.2f} dex {:.2f} con {:.2f} int {:.2f} spd {:.2f} cha {:.2f} lck {:.2f}\n",
         avg(x.stat_sum[0]), avg(x.stat_sum[1]), avg(x.stat_sum[2]), avg(x.stat_sum[3]), avg(x.stat_sum[4]), avg(x.stat_sum[5]), avg(x.stat_sum[6]));
-    s += std::format("No traces: parents unchanged {}, cat count unchanged {}\n", parents_unchanged ? "yes" : "NO", count_unchanged ? "yes" : "NO");
+    s += std::format("No traces: parents unchanged {}, cat count unchanged {}; kitten coi wrong: {}\n", parents_unchanged ? "yes" : "NO", count_unchanged ? "yes" : "NO", x.coi_wrong);
     return s;
 }
 
@@ -229,6 +236,16 @@ std::unique_ptr<uint8_t[]> raw_copy(const CatData *c) {
     return p;
 }
 
+// The Mewjector log is overwritten at every launch: also keep every report in sim_reports.txt next to the DLL.
+void append_report_file(const std::string &text) {
+    wchar_t buf[MAX_PATH];
+    GetModuleFileNameW(reinterpret_cast<HMODULE>(G.dll_base_va), buf, MAX_PATH);
+    std::ofstream out(std::filesystem::path(buf).parent_path() / "sim_reports.txt", std::ios::app);
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    out << std::format("=== {:04}-{:02}-{:02} {:02}:{:02}:{:02} ===\n", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond) << text << "\n";
+}
+
 void finish() {
     bool pa = std::memcmp(S.a_before.get(), S.a, sizeof(CatData)) == 0;
     bool pb = std::memcmp(S.b_before.get(), S.b, sizeof(CatData)) == 0;
@@ -236,6 +253,7 @@ void finish() {
     S.report = make_report(S.req, S.acc, pa && pb, cnt);
     S.running = false;
     D::info("Simulation done:\n{}", S.report);
+    append_report_file(S.report);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -364,28 +382,50 @@ double metric(const Acc &x, std::string_view m) {
     return pct(x.def_new);
 }
 
+// Expected rate (percent) of a metric for case `c` under the current inbreeding level. dis_new / def_new follow
+// the game's formulas on the coi actually handed to breed (breed_logic.hpp scaled_coi); level 2 also removes the
+// new disorders. Other metrics (inherited, any) do not depend on the inbreeding level.
+double expected_rate(const Case &c, const Check &k, int inbreeding) {
+    double cp = scaled_coi(c.coi, inbreeding);
+    std::string_view m = k.metric;
+    if(m == "dis_new") return inbreeding == 2 ? 0.0 : std::min(34.0, std::max(2.0, 40.0 * cp - 6.0));
+    if(m == "def_new") return std::min(100.0, 150.0 * cp);
+    return k.expected;
+}
+
+// Ability check (the mod must not change it): baselines measured in S5 on the same synthetic parents.
+constexpr double ACTIVE_BASELINE = 21.6, ACTIVE_TOL = 3.0, PASSIVE_MAX = 3.0;
+
 void suite_finish_case(const Case &c) {
     const Config &cfg = config();
-    bool vanilla = cfg.inbreeding == 0 && cfg.heredity == 0;
-    bool judged = !c.checks.empty() && (vanilla || c.any_settings);
-    bool ok = true;
+    // Trait rates are judged when heredity is Vanilla (all inbreeding levels), or for cases that hold at any setting.
+    bool judged = !c.checks.empty() && (cfg.heredity == 0 || c.any_settings);
+    const Acc &x = U.acc;
+    double act = x.n ? 100.0 * x.active_from_parent / x.n : 0.0;
+    double pas = x.n ? 100.0 * x.passive_from_parent / x.n : 0.0;
+    bool base_ok = x.coi_wrong == 0 && std::abs(act - ACTIVE_BASELINE) <= ACTIVE_TOL && pas <= PASSIVE_MAX;
+    bool traits_ok = true;
     std::string expect;
     for(const auto &k : c.checks) {
-        double v = metric(U.acc, k.metric);
-        ok &= std::abs(v - k.expected) <= k.tol;
-        expect += std::format(" {}={:.1f} (exp {}+-{})", k.metric, v, k.expected, k.tol);
+        double v = metric(x, k.metric);
+        double e = expected_rate(c, k, cfg.inbreeding);
+        traits_ok &= std::abs(v - e) <= k.tol;
+        expect += std::format(" {}={:.1f} (exp {:.1f}+-{})", k.metric, v, e, k.tol);
     }
-    const char *verdict = !judged ? "info" : (ok ? "PASS" : "FAIL");
-    if(judged) (ok ? U.overall_pass : U.overall_fail)++;
-    const Acc &x = U.acc;
-    U.report += std::format("{:4} | {} coi {} | dis any {:.1f} inh {:.1f} new {:.1f} | def any {:.1f} inh {:.1f} new {:.1f} | act {:.1f} pas {:.1f} |{}\n",
+    const char *verdict = !base_ok ? "FAIL" : (!judged ? "base" : (traits_ok ? "PASS" : "FAIL"));
+    if(std::string_view(verdict) == "PASS") U.overall_pass++;
+    if(std::string_view(verdict) == "FAIL") U.overall_fail++;
+    // mean heritable stats (str dex con int spd cha lck): must not change across levels (compare the runs)
+    std::string stats;
+    for(double s : x.stat_sum) {
+        stats += std::format("{}{:.2f}", stats.empty() ? "" : "/", x.n ? s / x.n : 0.0);
+    }
+    U.report += std::format("{:4} | {} coi {} | dis any {:.1f} inh {:.1f} new {:.1f} | def any {:.1f} inh {:.1f} new {:.1f} | act {:.1f} pas {:.1f} coi_wrong {} | stats {} |{}\n",
         verdict, c.name, c.coi,
         metric(x, "dis_any"), metric(x, "dis_inh"), metric(x, "dis_new"),
         metric(x, "def_any"), metric(x, "def_inh"), metric(x, "def_new"),
-        x.n ? 100.0 * x.active_from_parent / x.n : 0.0, x.n ? 100.0 * x.passive_from_parent / x.n : 0.0,
-        expect);
+        act, pas, x.coi_wrong, stats, expect);
 }
-
 // one chunk of the suite; the caller has already swapped in the simulator RNG
 void suite_chunk() {
     constexpr int CHUNK = 250;
@@ -401,7 +441,7 @@ void suite_chunk() {
     for(int i = 0; i < todo; i++) {
         TempCat kitten = new_default_cat();
         glaiel__CatData__breed_call(kitten.get(), U.a.get(), U.b.get(), c.coi, nullptr);
-        add_kitten(U.acc, *kitten, *U.a, *U.b);
+        add_kitten(U.acc, *kitten, *U.a, *U.b, c.coi);
     }
     U.done_in_batch += todo;
     if(U.done_in_batch >= per_batch) {
@@ -413,10 +453,11 @@ void suite_chunk() {
             U.batch = 0;
             if(++U.case_idx >= cases.size()) {
                 const Config &cfg = config();
-                U.report = std::format("Test suite: inbreeding {} heredity {}, {} kittens per case ({} parent pairs each): {} pass, {} fail\n",
+                U.report = std::format("Test suite: inbreeding {} heredity {}, {} kittens per case ({} parent pairs each): {} pass, {} fail (base = only abilities and kitten coi judged)\n",
                     cfg.inbreeding, cfg.heredity, U.n_per_case, SUITE_BATCHES, U.overall_pass, U.overall_fail) + U.report;
                 U.running = false;
                 D::info("Test suite done:\n{}", U.report);
+                append_report_file(U.report);
             }
         }
     }
@@ -567,7 +608,7 @@ void simulator_tick() {
     for(int i = 0; i < todo; i++) {
         TempCat kitten = new_default_cat();
         glaiel__CatData__breed_call(kitten.get(), S.a, S.b, S.req.coi, nullptr);
-        add_kitten(S.acc, *kitten, *S.a, *S.b);
+        add_kitten(S.acc, *kitten, *S.a, *S.b, S.req.coi);
     }
     g_breed_sim_active = false;
     g_suppress_name_history = false;

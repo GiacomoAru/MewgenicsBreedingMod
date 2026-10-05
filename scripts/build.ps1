@@ -30,10 +30,12 @@ if ($LASTEXITCODE) { exit $LASTEXITCODE }
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 # Unit checks (Debug, so assert() is active)
-& $cmake --build $build --config Debug --target test_config
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
-& "$build\Debug\test_config.exe"
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
+foreach ($t in "test_config", "test_breed_logic") {
+    & $cmake --build $build --config Debug --target $t
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    & "$build\Debug\$t.exe"
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
+}
 
 $out = Join-Path $root "mod\CleanBreeding"
 New-Item -ItemType Directory -Force $out | Out-Null

@@ -1,5 +1,7 @@
 ﻿#include "amoeboid.hpp"
 #include "breed.hpp"
+#include "breed_logic.hpp"
+#include "config.hpp"
 #include "snapshot.hpp"
 #include "types/glaiel.hpp"
 #include "types/msvc.hpp"
@@ -13,6 +15,8 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <vector>
 #include <string>
 
 // Hook on glaiel::CatData::breed.
@@ -87,25 +91,63 @@ static void log_cat(const char *label, const CatData &c) {
     D::info("    parts: {}", cat_parts(c));
 }
 
+// Inbreeding level 2: drop the kitten's new disorders (see breed_logic.hpp), writing the game's strings with
+// destroy() + construct() as cat-bridge does.
+static void remove_new_kitten_disorders(CatData &kitten, const CatData &a, const CatData &b) {
+    MsvcReleaseModeXString *names[2] = {&kitten.mutation_0, &kitten.mutation_1};
+    int64_t *levels[2] = {&kitten.mutation_0_level, &kitten.mutation_1_level};
+    DisorderSlot slots[2];
+    for(int i = 0; i < 2; i++) {
+        slots[i] = {names[i]->copy_to_native_string(), *levels[i]};
+    }
+    std::vector<std::string> parents;
+    for(const CatData *p : {&a, &b}) {
+        parents.push_back(p->mutation_0.copy_to_native_string());
+        parents.push_back(p->mutation_1.copy_to_native_string());
+    }
+    DisorderSlot before[2] = {slots[0], slots[1]};
+    if(remove_new_disorders(slots, parents, config().whitelist_disorders) == 0) {
+        return;
+    }
+    for(int i = 0; i < 2; i++) {
+        if(slots[i].name != before[i].name || slots[i].level != before[i].level) {
+            names[i]->destroy();
+            names[i]->construct(slots[i].name.data(), slots[i].name.size());
+            *levels[i] = slots[i].level;
+        }
+    }
+}
+
 MAKE_SHOOK(0, ADDRESS_glaiel__CatData__breed,
     void, __cdecl, glaiel__CatData__breed,
     CatData *kitten, CatData *parent_a, CatData *parent_b, double coi, void *furniture_effects
 ) {
-    if(g_breed_sim_active) {
-        // simulator call: no logging, no snapshot
-        glaiel__CatData__breed_hook.orig(kitten, parent_a, parent_b, coi, furniture_effects);
-        return;
+    const Config &cfg = config();
+    const double real_coi = coi;
+    const double passed_coi = scaled_coi(real_coi, cfg.inbreeding);
+    const bool logging = !g_breed_sim_active;
+    int call_no = 0;
+    if(logging) {
+        static int counter = 0;
+        call_no = ++counter;
+        g_last_breed = {true, parent_a->sql_key, parent_b->sql_key, real_coi};
+        std::ofstream(last_breed_path()) << parent_a->sql_key << ' ' << parent_b->sql_key << ' ' << std::format("{:.17g}", real_coi) << '\n';
+        D::info("[breed #{}] coi_param={} passed_to_game={} (inbreeding {}) kitten_ptr={} A={} B={}", call_no, real_coi, passed_coi,
+            cfg.inbreeding, static_cast<void *>(kitten), parent_a->sql_key, parent_b->sql_key);
+        log_cat("parentA", *parent_a);
+        log_cat("parentB", *parent_b);
     }
-    static int call_no = 0;
-    ++call_no;
-    g_last_breed = {true, parent_a->sql_key, parent_b->sql_key, coi};
-    std::ofstream(last_breed_path()) << parent_a->sql_key << ' ' << parent_b->sql_key << ' ' << std::format("{:.17g}", coi) << '\n';
-    D::info("[breed #{}] coi_param={} kitten_ptr={} A={} B={}", call_no, coi,
-        static_cast<void *>(kitten), parent_a->sql_key, parent_b->sql_key);
-    log_cat("parentA", *parent_a);
-    log_cat("parentB", *parent_b);
-    glaiel__CatData__breed_hook.orig(kitten, parent_a, parent_b, coi, furniture_effects);
-    log_cat("kitten(after)", *kitten);
-    D::info("  kitten coi after = {} (param was {})", kitten->coi, coi);
-    snapshot_note_breed(call_no, *parent_a, *parent_b, coi, *kitten);
+
+    glaiel__CatData__breed_hook.orig(kitten, parent_a, parent_b, passed_coi, furniture_effects);
+
+    kitten->coi = real_coi; // the kitten stays "Inbred" and the pedigree gets the true value
+    if(cfg.inbreeding == 2) {
+        remove_new_kitten_disorders(*kitten, *parent_a, *parent_b);
+    }
+
+    if(logging) {
+        log_cat("kitten(after)", *kitten);
+        D::info("  kitten coi after = {} (param was {})", kitten->coi, real_coi);
+        snapshot_note_breed(call_no, *parent_a, *parent_b, real_coi, *kitten);
+    }
 }
