@@ -55,7 +55,7 @@ struct Acc {
     int with_disorder = 0, dis_inherited = 0, dis_new = 0;     // kittens with >=1 disorder (any / inherited / new)
     int with_defect = 0, def_inherited = 0, def_new = 0;       // kittens with >=1 defective part
     int64_t disorder_total = 0, defect_slots_total = 0;
-    int64_t negative_total = 0, negative_whitelisted = 0;
+    int64_t negative_total = 0;
     int active_from_parent = 0, passive_from_parent = 0;
     int coi_wrong = 0; // kitten->coi different from the real pair coi
     double stat_sum[7] = {};
@@ -87,7 +87,6 @@ void add_kitten(Acc &acc, const CatData &k, const CatData &a, const CatData &b, 
         any_dis = true;
         acc.disorder_total++;
         acc.negative_total++;
-        if(config().whitelist_disorders.contains(std::string(d->as_native_string_view()))) acc.negative_whitelisted++;
         bool inh = false;
         for(auto *p : pd) inh |= !is_none(*p) && p->as_native_string_view() == d->as_native_string_view();
         (inh ? any_inh : any_new) = true;
@@ -145,13 +144,11 @@ std::string make_report(const SimRequest &r, const Acc &x, bool parents_unchange
     auto pct = [&](int v) { return x.n ? 100.0 * v / x.n : 0.0; };
     auto avg = [&](double v) { return x.n ? v / x.n : 0.0; };
     const Config &c = config();
-    std::string s = std::format("{} x {}  coi {:.4f}  N {}  (inbreeding {}, heredity {})\n", r.parent_a, r.parent_b, r.coi, x.n, c.inbreeding, c.heredity);
+    std::string s = std::format("{} x {}  coi {:.4f}  N {}  (Inbreeding penalties: {}, Inherited flaws: {})\n", r.parent_a, r.parent_b, r.coi, x.n, level_label(c.inbreeding), level_label(c.heredity));
     s += std::format("Disorders:  any {:.1f}%  inherited {:.1f}%  new {:.1f}%\n", pct(x.with_disorder), pct(x.dis_inherited), pct(x.dis_new));
     s += std::format("Bad parts:  any {:.1f}%  inherited {:.1f}%  new {:.1f}%\n", pct(x.with_defect), pct(x.def_inherited), pct(x.def_new));
     s += std::format("Negative traits per kitten: {:.3f} ({:.3f} disorders, {:.3f} bad part slots)\n",
         avg(static_cast<double>(x.negative_total)), avg(static_cast<double>(x.disorder_total)), avg(static_cast<double>(x.defect_slots_total)));
-    s += std::format("Whitelisted share of negative traits: {:.1f}%\n",
-        x.negative_total ? 100.0 * x.negative_whitelisted / x.negative_total : 0.0);
     s += std::format("Ability check: active from a parent {:.1f}%  passive from a parent {:.1f}%\n", pct(x.active_from_parent), pct(x.passive_from_parent));
     s += std::format("Mean heritable stats: str {:.2f} dex {:.2f} con {:.2f} int {:.2f} spd {:.2f} cha {:.2f} lck {:.2f}\n",
         avg(x.stat_sum[0]), avg(x.stat_sum[1]), avg(x.stat_sum[2]), avg(x.stat_sum[3]), avg(x.stat_sum[4]), avg(x.stat_sum[5]), avg(x.stat_sum[6]));
@@ -189,7 +186,7 @@ void finish() {
 // Automatic test suite: fixed cases on synthetic parents (random strays of the game, cleaned of
 // negative traits, then given exactly the traits of the case). Several fresh parent pairs per case
 // for coverage of stats / bodies. Verdicts only where the expected rate is defined for the current
-// settings (so far: Vanilla, plus whitelist invariants).
+// settings (all inbreeding and heredity levels).
 // ---------------------------------------------------------------------------------------------
 
 using Expect = std::function<double(int inbreeding, int heredity)>;
@@ -246,7 +243,7 @@ const std::vector<Case> &suite_cases() {
         {"A: Pox", 0.0, {{"Pox"}, {}}, {}, {{"dis_inh", 2, by_heredity(15, 7.5, 0, 27.75)}}},
         {"A: Pox, B: Flu", 0.0, {{"Pox"}, {}}, {{"Flu"}, {}}, {{"dis_inh", 3, by_heredity(27.75, 14.4, 0, 47.8)}}},
         {"A: Pox+Flu", 0.0, {{"Pox", "Flu"}, {}}, {}, {{"dis_inh", 2, by_heredity(15, 11.25, 0, 27.75)}}},
-        {"A: EternalYouth (whitelist)", 0.0, {{"EternalYouth"}, {}}, {}, {{"dis_inh", 2, constant(15)}}},
+        {"A: EternalYouth", 0.0, {{"EternalYouth"}, {}}, {}, {{"dis_inh", 2, by_heredity(15, 7.5, 0, 27.75)}}},
         {"A: legs+arms 700 (defect, 2 units)", 0.0, {{}, {{"legs", 700}}}, {}, {{"def_inh", 3, defect_inherited(2)}}},
         {"A: eyes 701 (defect, 1 unit)", 0.0, {{}, {{"eyes", 701}}}, {}, {{"def_inh", 3, defect_inherited(1)}}},
         {"A: head 704 (Cyclops, defect, 1 unit)", 0.0, {{}, {{"head", 704}}}, {}, {{"def_inh", 3, defect_inherited(1)}}},
@@ -378,8 +375,8 @@ void suite_chunk() {
             U.batch = 0;
             if(++U.case_idx >= cases.size()) {
                 const Config &cfg = config();
-                U.report = std::format("Test suite: inbreeding {} heredity {}, {} kittens per case ({} parent pairs each): {} pass, {} fail (base = only abilities and kitten coi judged)\n",
-                    cfg.inbreeding, cfg.heredity, U.n_per_case, SUITE_BATCHES, U.overall_pass, U.overall_fail) + U.report;
+                U.report = std::format("Test suite: Inbreeding penalties {}, Inherited flaws {}: {} kittens per case ({} parent pairs each): {} pass, {} fail (base = only abilities and kitten coi judged)\n",
+                    level_label(cfg.inbreeding), level_label(cfg.heredity), U.n_per_case, SUITE_BATCHES, U.overall_pass, U.overall_fail) + U.report;
                 U.running = false;
                 D::info("Test suite done:\n{}", U.report);
                 append_report_file(U.report);

@@ -45,9 +45,8 @@ void config_load() {
     };
     c.inbreeding = level(L"inbreeding");
     c.heredity = level(L"heredity");
-    c.whitelist_disorders = parse_csv(read_string(L"whitelist", L"disorders"));
-    D::info("Config: inbreeding={} heredity={} whitelist: {} disorders",
-        c.inbreeding, c.heredity, c.whitelist_disorders.size());
+    D::info("Config: inbreeding={} heredity={}",
+        c.inbreeding, c.heredity);
 }
 
 void config_save_breeding() {

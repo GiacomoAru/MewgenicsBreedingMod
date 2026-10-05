@@ -112,7 +112,7 @@ static void remove_new_kitten_disorders(CatData &kitten, const CatData &a, const
         parents.push_back(p->mutation_1.copy_to_native_string());
     }
     DisorderSlot before[2] = {slots[0], slots[1]};
-    if(remove_new_disorders(slots, parents, config().whitelist_disorders) == 0) {
+    if(remove_new_disorders(slots, parents) == 0) {
         return;
     }
     for(int i = 0; i < 2; i++) {
@@ -172,7 +172,7 @@ static void hide_parent_disorders(HiddenDisorders &hidden, CatData &parent, int 
     int64_t *levels[2] = {&parent.mutation_0_level, &parent.mutation_1_level};
     for(int i = 0; i < 2; i++) {
         std::string_view n = names[i]->as_native_string_view();
-        if(n == "None" || n.empty() || config().whitelist_disorders.contains(std::string(n))) {
+        if(n == "None" || n.empty()) {
             continue;
         }
         if(should_block(heredity, rnd())) {
@@ -244,14 +244,14 @@ static void set_disorder_slot(MsvcReleaseModeXString &name, int64_t &level, cons
     level = value_level;
 }
 
-// Level 3 (Hard): second chance for the parents' negative traits (docs/DESIGN.md). Never whitelisted disorders.
+// Level 3 (Hard): second chance for the parents' negative traits (docs/DESIGN.md).
 static void hard_second_chance(CatData &kitten, const CatData &a, const CatData &b) {
     MsvcReleaseModeXString *kn[2] = {&kitten.mutation_0, &kitten.mutation_1};
     int64_t *kl[2] = {&kitten.mutation_0_level, &kitten.mutation_1_level};
     for(const CatData *p : {&a, &b}) {
         std::vector<std::string> pnames = {p->mutation_0.copy_to_native_string(), p->mutation_1.copy_to_native_string()};
         std::vector<std::string> knames = {kn[0]->copy_to_native_string(), kn[1]->copy_to_native_string()};
-        auto cand = second_chance_candidates(pnames, knames, config().whitelist_disorders);
+        auto cand = second_chance_candidates(pnames, knames);
         int free_slot = knames[0] == "None" || knames[0].empty() ? 0 : (knames[1] == "None" || knames[1].empty() ? 1 : -1);
         if(cand.empty() || free_slot < 0 || rnd() >= HARD_DISORDER_CHANCE) continue;
         const std::string &pick = cand[static_cast<size_t>(rnd() * cand.size()) % cand.size()];

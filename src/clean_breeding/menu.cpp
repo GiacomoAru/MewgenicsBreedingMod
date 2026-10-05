@@ -1,5 +1,6 @@
 ﻿#include "amoeboid.hpp"
 #include "config.hpp"
+#include <iterator>
 #if CB_DEV_TOOLS
 #include <format>
 
@@ -22,60 +23,91 @@ namespace {
     bool g_visible = false;
 }
 
-// Level numbers are fixed by DESIGN.md (0 Vanilla, 1 Mild, 2 None, 3 Hard); the menu lists them by difficulty.
-static const int LEVEL_ORDER[4] = {3, 0, 1, 2};
-static const char *const LEVEL_NAMES[4] = {"Hard", "Vanilla", "Mild", "None"};
+// Names and texts: docs/DESIGN.md, section "Nomi e testi". Level values in config.ini never change (0 Normal,
+// 1 Reduced, 2 Off, 3 Increased); the menu lists them from the mildest effect to the strongest.
+static constexpr int LEVEL_ORDER[4] = {2, 1, 0, 3};
+static const char *const AXIS_TOOLTIPS[2][4] = { // [axis][index into LEVEL_ORDER]
+    {"Related parents count as unrelated.", "Inbreeding counts half.", "Game default.", "Inbreeding counts double."},
+    {"Parents never pass on disorders or birth defects.", "Half the usual chance.", "Game default.", "Flaws get a second chance to pass on."},
+};
 
-static bool level_combo(const char *label, int &level) {
-    int idx = 0;
+// returns true when the level changed
+static bool level_combo(const char *label, const char *description, int axis, int &level) {
+    int current = 2;
     for(int i = 0; i < 4; i++) {
-        if(LEVEL_ORDER[i] == level) idx = i;
+        if(LEVEL_ORDER[i] == level) current = i;
     }
     bool changed = false;
-    if(ImGui::BeginCombo(label, LEVEL_NAMES[idx])) {
+    if(ImGui::BeginCombo(label, level_label(level))) {
         for(int i = 0; i < 4; i++) {
-            if(ImGui::Selectable(LEVEL_NAMES[i], i == idx) && LEVEL_ORDER[i] != level) {
+            if(ImGui::Selectable(level_label(LEVEL_ORDER[i]), i == current) && LEVEL_ORDER[i] != level) {
                 level = LEVEL_ORDER[i];
                 changed = true;
+            }
+            if(ImGui::IsItemHovered()) {
+                ImGui::SetTooltip("%s", AXIS_TOOLTIPS[axis][i]);
             }
         }
         ImGui::EndCombo();
     }
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled("%s", description);
+    ImGui::PopTextWrapPos();
     return changed;
 }
 
 static void draw_menu() {
     Config &c = config();
-    ImGui::SetNextWindowSize(ImVec2(380, 0), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(470, 0), ImGuiCond_FirstUseEver);
     if(ImGui::Begin("Clean Breeding", &g_visible)) {
-        ImGui::Text("Version %s | game %s (exe hash %s) | signatures OK | hooks active",
-            MOD_VERSION, EXE_VERSION, G.exe_hash_mismatch_detected ? "MISMATCH" : "OK");
+        if(G.mod_active) {
+            ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.35f, 1.0f), "Active Â· Mewgenics %s", EXE_VERSION);
+        } else {
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::TextColored(ImVec4(0.95f, 0.35f, 0.35f, 1.0f), "Inactive: unsupported game version (needs %s)", EXE_VERSION);
+            ImGui::PopTextWrapPos();
+        }
         ImGui::Separator();
 
-        bool changed = false;
-        changed |= level_combo("Inbreeding", c.inbreeding);
-        changed |= level_combo("Heredity", c.heredity);
+        if(G.mod_active) {
+            ImGui::PushItemWidth(180.0f);
+            bool changed = false;
+            changed |= level_combo("Inbreeding penalties", "New disorders and birth defects caused by breeding related cats.", 0, c.inbreeding);
+            ImGui::Spacing();
+            changed |= level_combo("Inherited flaws", "Disorders and birth defects passed down from the parents.", 1, c.heredity);
+            ImGui::PopItemWidth();
 
-        struct Preset { const char *name; int inbreeding, heredity; };
-        static const Preset presets[] = {
-            {"Vanilla", 0, 0}, {"Assisted", 1, 1}, {"Free breeding", 2, 0}, {"Perfect genetics", 2, 2}, {"Hard mode", 3, 3},
-        };
-        for(const auto &p : presets) {
-            if(ImGui::Button(p.name)) {
-                c.inbreeding = p.inbreeding;
-                c.heredity = p.heredity;
-                changed = true;
+            ImGui::Spacing();
+            struct Preset { const char *name; int inbreeding, heredity; const char *tooltip; };
+            static const Preset presets[] = {
+                {"Vanilla", 0, 0, "The game's own rules."},
+                {"Gentle", 1, 1, "Half the penalties and flaws."},
+                {"Carefree", 2, 0, "Breed relatives freely; parents still pass on their own flaws."},
+                {"Clean", 2, 2, "No disorders or birth defects from breeding."},
+                {"Hardcore", 3, 3, "Inbreeding hits harder and flaws spread more."},
+            };
+            for(size_t i = 0; i < std::size(presets); i++) {
+                const Preset &p = presets[i];
+                if(ImGui::Button(p.name)) {
+                    c.inbreeding = p.inbreeding;
+                    c.heredity = p.heredity;
+                    changed = true;
+                }
+                if(ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("%s", p.tooltip);
+                }
+                if(i + 1 < std::size(presets)) ImGui::SameLine();
             }
-            ImGui::SameLine();
-        }
-        ImGui::NewLine();
-        if(changed) {
-            config_save_breeding();
+            if(changed) {
+                config_save_breeding();
+            }
+            ImGui::Spacing();
+            ImGui::TextDisabled("F8: show/hide Â· Settings are saved automatically");
         }
 
 #if CB_DEV_TOOLS
         ImGui::Separator();
-        if(ImGui::CollapsingHeader("Debug: breeding simulator")) {
+        if(ImGui::CollapsingHeader("Developer tools")) {
             static int64_t parent_a = 0, parent_b = 0;
             static double coi = 0;
             static int n = 1000;
@@ -141,6 +173,7 @@ static void draw_menu() {
     }
     ImGui::End();
 }
+
 MAKE_PHOOK(1, "SDL_GL_SwapWindow",
     bool, __cdecl, SDL_GL_SwapWindow,
     SDL_Window *window

@@ -1,6 +1,6 @@
-﻿{
+{
     "title": "Clean Breeding",
-    "description": "In-game menu (F8) to reduce inbreeding and heredity of birth defects and disorders.",
+    "description": "Tune how breeding passes on disorders and birth defects: two settings (Inbreeding penalties, Inherited flaws) and five presets, in a menu opened with F8.",
     "author": "cicci",
     "version": "0.1.0",
     "url": "",

@@ -14,28 +14,22 @@ int main() {
     assert(scaled_coi(0.3, 9) == 0.3);  // unknown level = Vanilla
 
     const std::vector<std::string> parents = {"Pox", "None", "Flu"};
-    const std::set<std::string> wl = {"EternalYouth"};
-
+    
     // new disorder removed, inherited one kept
     DisorderSlot a[2] = {{"Pox", 1}, {"Schizophrenia", 1}};
-    assert(remove_new_disorders(a, parents, wl) == 1);
+    assert(remove_new_disorders(a, parents) == 1);
     assert(a[0].name == "Pox" && a[1].is_none() && a[1].level == 1);
 
     // inherited in slot 1, new in slot 0: new removed, slot 1 moves to slot 0
     DisorderSlot b[2] = {{"Schizophrenia", 1}, {"Flu", 2}};
-    assert(remove_new_disorders(b, parents, wl) == 1);
+    assert(remove_new_disorders(b, parents) == 1);
     assert(b[0].name == "Flu" && b[0].level == 2 && b[1].is_none());
-
-    // whitelisted new disorder is kept
-    DisorderSlot c[2] = {{"EternalYouth", 1}, {"Chungus", 1}};
-    assert(remove_new_disorders(c, parents, wl) == 1);
-    assert(c[0].name == "EternalYouth" && c[1].is_none());
 
     // both new: both removed; nothing to do on an empty kitten
     DisorderSlot d[2] = {{"A", 1}, {"B", 1}};
-    assert(remove_new_disorders(d, parents, wl) == 2 && d[0].is_none() && d[1].is_none());
+    assert(remove_new_disorders(d, parents) == 2 && d[0].is_none() && d[1].is_none());
     DisorderSlot e[2];
-    assert(remove_new_disorders(e, parents, wl) == 0 && e[0].is_none());
+    assert(remove_new_disorders(e, parents) == 0 && e[0].is_none());
 
     // should_block
     assert(!should_block(0, 0.0) && !should_block(3, 0.0));
@@ -43,10 +37,9 @@ int main() {
 
     // second_chance_candidates
     const std::vector<std::string> pd = {"Pox", "EternalYouth"};
-    assert((second_chance_candidates(pd, {"None", "None"}, wl) == std::vector<std::string>{"Pox"})); // whitelist excluded
-    assert(second_chance_candidates(pd, {"Pox", "None"}, wl).empty());   // kitten already has one of the parent's
-    assert(second_chance_candidates({"None", "None"}, {"None", "None"}, wl).empty());
-    assert(second_chance_candidates({"EternalYouth", "None"}, {"None", "None"}, wl).empty()); // only whitelisted
+    assert((second_chance_candidates(pd, {"None", "None"}) == std::vector<std::string>{"Pox", "EternalYouth"}));
+    assert(second_chance_candidates(pd, {"Pox", "None"}).empty());   // kitten already has one of the parent's
+    assert(second_chance_candidates({"None", "None"}, {"None", "None"}).empty());
 
     std::puts("test_breed_logic OK");
     return 0;

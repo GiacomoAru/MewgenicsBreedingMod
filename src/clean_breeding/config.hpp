@@ -5,14 +5,23 @@
 #include <utility>
 
 // Settings, stored in config.ini next to the DLL (UTF-8 without BOM, ASCII values only).
-// Level numbers: 0 = Vanilla, 1 = Mild, 2 = None, 3 = Hard (see docs/DESIGN.md).
+// Level values in the file: 0 = Normal, 1 = Reduced, 2 = Off, 3 = Increased (see docs/DESIGN.md).
 //
 // Exporter: config.cpp
+
+// Player-facing name of a level value (menu, logs, reports): 2 Off, 1 Reduced, 0 Normal, 3 Increased.
+inline const char *level_label(int level) {
+    switch(level) {
+        case 1: return "Reduced";
+        case 2: return "Off";
+        case 3: return "Increased";
+        default: return "Normal";
+    }
+}
 
 struct Config {
     int inbreeding = 0;
     int heredity = 0;
-    std::set<std::string> whitelist_disorders;
 };
 
 Config &config();

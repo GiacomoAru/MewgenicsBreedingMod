@@ -189,37 +189,61 @@ Decisione dell'utente del 2026-10-05: il Cleanse non si pubblica, e gli strument
   - con OFF non vengono compilati simulatore, test suite, sezione Debug del menù, `snapshot.cpp`, test helper `[debug]` (`test_resources`, `test_disorders`, `test_simulation`), `last_breed.txt` e `sim_reports.txt`.
 
   Usa `#if CB_DEV_TOOLS` o liste di sorgenti condizionali nel CMake.
-- [x] Il `config.ini` di release (`mod/CleanBreeding/config.ini`) contiene solo `[breeding]` e `[whitelist] disorders`. La sezione `[debug]` resta solo nella copia di test installata in Mewtator, oppure in un file `configs/config.dev.ini` che `install.ps1` copia quando si installa la build di sviluppo.
+- [x] (codice, test e `.ini` fatti; la suite va rilanciata dall'utente, vedi sotto) **Decisione dell'utente del 2026-10-05 (vedi DESIGN.md): nessuna whitelist, nemmeno per i disordini.**
+  - Togli `whitelist_disorders`, il parsing di `[whitelist]` e ogni controllo "in whitelist" da config, hook, simulatore e test; togli la sezione `[whitelist]` da entrambi i `config.ini` (progetto e copia installata in Mewtator).
+  - Ogni disordine e ogni difetto conta come negativo.
+  - Nella suite, il caso "A: EternalYouth (whitelist)" diventa un caso normale di disordine: atteso 0% a livello 2, circa 7.5% a livello 1, circa 27.75% a livello 3.
+  - [ ] Rilancia la suite (N = 25000): tutto PASS.
+- [x] Il `config.ini` di release (`mod/CleanBreeding/config.ini`) contiene solo `[breeding]` (aggiornato: niente più `[whitelist]`). La sezione `[debug]` resta solo nella copia di test installata in Mewtator, oppure in un file `configs/config.dev.ini` che `install.ps1` copia quando si installa la build di sviluppo.
 - [ ] Check:
   - [x] la build di release compila e la DLL non contiene le stringhe `"Run all tests"`, `"test_resources"`, `"Cleanse"` (controlla con `findstr /c:` o con Python);
   - 🛑 nel gioco, con la build di release: F8 mostra solo livelli, preset e stato; il breeding funziona;
   - [x] la build di sviluppo continua ad avere simulatore e test suite.
 
+## S8b. Nomi, testi del menù e spiegazioni
+
+Decisione dell'utente del 2026-10-05: nomi più chiari e uniformi, piccole spiegazioni nel menù, niente debug nella versione pubblica. I testi esatti sono in DESIGN.md, sezione "Nomi e testi": usali così come sono, non inventarne altri.
+
+- [x] Rinomina nel menù assi, livelli e preset come da DESIGN.md:
+  - assi: "Inbreeding" diventa "Inbreeding penalties", "Heredity" diventa "Inherited flaws";
+  - livelli: Off / Reduced / Normal / Increased, mostrati in quest'ordine;
+  - preset: Vanilla / Gentle / Carefree / Clean / Hardcore.
+
+  I valori numerici in `config.ini` **non cambiano** (0 Normal, 1 Reduced, 2 Off, 3 Increased) e nemmeno le chiavi `inbreeding` e `heredity`: cambiano solo le etichette. Aggiorna i commenti di `config.ini`.
+- [x] Spiegazioni compatte:
+  - sotto ogni regolatore una riga grigia (`TextDisabled`) che spiega l'asse;
+  - passando il mouse su un livello o su un preset, un tooltip di una riga;
+  - in fondo una riga grigia "F8: show/hide · Settings are saved automatically".
+- [x] Riga di stato per il giocatore, senza termini tecnici (niente hash, niente signature):
+  - verde "Active · Mewgenics 1.1.21239";
+  - rosso "Inactive: unsupported game version (needs 1.1.21239)".
+
+  I dettagli tecnici vanno solo nel log.
+- [x] Debug:
+  - nella build di release (`CB_DEV_TOOLS=OFF`) il menù non contiene niente di debug (già vero dopo S8: verificalo);
+  - nella build di sviluppo la sezione resta, raggruppata in fondo sotto un unico header "Developer tools", così si distingue dal menù vero.
+- [x] Rinomina negli stessi termini anche il report del simulatore e i nomi dei casi della suite (es. "level 2" diventa "Off"), così report e menù parlano la stessa lingua.
+- [x] Documenti:
+  - `README.md` con la sezione "How it works": i due regolatori, i 4 livelli con i numeri della tabella di DESIGN.md (in parole semplici), i 5 preset e a chi servono;
+  - una nota su cosa la mod **non** tocca: abilità, passive, stat, mutazioni normali, gatti adulti;
+  - aggiorna CLAUDE.md e i nomi usati in PLAN e DESIGN, se servono.
+- [ ] Check:
+  - 🛑 l'utente apre il menù (build di release) e conferma che si capisce senza leggere la documentazione;
+  - nessuna stringa del menù è più larga della finestra a 1280×720;
+  - [x] la build di release non contiene "Developer tools", "Simulate", "Run all tests".
+
 ## S9. Packaging
 
-- [ ] `README.md` in root:
+- [x] `README.md` in root:
   - cosa fa la mod;
   - installazione (Mewtator più Mewjector);
   - versione del gioco supportata;
-  - livelli e whitelist dei disordini;
+  - i due regolatori, i 4 livelli e i 5 preset;
   - crediti (polymeric, z3ndroot, MIT).
-- [ ] `scripts/package.ps1`: build di **release** (`CB_DEV_TOOLS=OFF`), poi zip di `mod/CleanBreeding/` in `outputs/CleanBreeding-<versione>.zip`.
+- [x] `scripts/package.ps1`: build di **release** (`CB_DEV_TOOLS=OFF`), poi zip di `mod/CleanBreeding/` in `outputs/CleanBreeding-<versione>.zip`.
 - [ ] Check: installazione pulita dallo zip in Mewtator su un'altra copia della cartella mods; il gioco parte e il menù funziona.
 
-## S10. Editor della whitelist dei disordini (prima modifica dopo la v1)
-
-- [ ] Estendi lo script generatore di S4 (o creane uno accanto) in modo che produca la lista di tutti i disordini di `data/passives/disorders.gon`, con nome e descrizione in inglese da `data/text/combined.csv` (`DISORDER_<KEY>_NAME/_DESC`) e le stat. Self-check: 125 disordini; `EternalYouth` ha nome e descrizione.
-- [ ] Nel menù F8, una scheda "Protected disorders":
-  - due colonne, **Protected | Removable**, con un campo di ricerca;
-  - un clic sposta un disordine nell'altra colonna;
-  - tooltip con descrizione e stat;
-  - pulsante "Reset to defaults";
-  - ogni cambio si salva subito in `[whitelist] disorders`.
-- [ ] Niente mutazioni né difetti nell'editor (decisione di DESIGN.md).
-- [ ] Check:
-  - lo script passa i suoi self-check;
-  - 🛑 nel gioco: spostare un disordine aggiorna il `.ini`, e dopo un riavvio la scelta resta;
-  - nel simulatore (build dev), un disordine appena reso "Protected" eredita con i tassi Vanilla anche con Eredità Nessuno.
+## S10. ~~Editor della whitelist~~ (annullato il 2026-10-05: la whitelist è stata tolta del tutto)
 
 ## Dopo (non ora)
 

@@ -73,4 +73,7 @@ struct GlobalContext {
     // Mewgenics.exe hash.
     std::optional<Hash256Bit> exe_actual_sha256;
     bool exe_hash_mismatch_detected;
+
+    // True once the breeding hook is installed (supported game version, all signatures found).
+    bool mod_active = false;
 };

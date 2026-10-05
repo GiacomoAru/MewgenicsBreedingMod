@@ -10,11 +10,11 @@ Mod DLL per Mewgenics (caricata da Mewjector, gestita da Mewtator) con un menù 
 1. riduce o elimina gli effetti genetici dell'**inbreeding**;
 2. riduce o elimina l'**eredità dai genitori** di disordini e difetti fisici.
 
-Una **whitelist di disordini** protegge i disordini "buoni".
+Niente altro: due regolatori e 5 preset.
 
 **Aggiornamento 2026-10-05, deciso con l'utente:**
-- **Niente Cleanse nella mod.** Serviva solo per i test e non va pubblicato: il codice e le opzioni del Cleanse si rimuovono.
-- **Niente whitelist per i difetti di nascita.** Tutti i difetti sono negativi, senza eccezioni. Con Eredità Mite o Nessuno anche Cyclops e i difetti che danno abilità di un'altra classe vengono bloccati; chi li vuole tenere usa Eredità Vanilla.
+- **Il Cleanse (il pulsante che puliva tutti i gatti) è eliminato del tutto.** Nessuna modalità e nessun pulsante, né nella release né nella build di sviluppo. Si toglie anche il codice già scritto (selettore di modalità, `CleanseMode`, sezione `[cleanse]` del `.ini`).
+- **Nessuna whitelist**, né per i disordini né per i difetti. Ogni disordine e ogni difetto di nascita conta come negativo, senza eccezioni: anche Eternal Youth, Savant, Cyclops. Chi vuole che i tratti buoni passino ai figli usa Eredità Vanilla. Si toglie anche il codice già scritto (`whitelist_disorders`, `whitelist_defects`, sezione `[whitelist]` del `.ini`); salta anche l'editor previsto in S10.
 - **Gli strumenti di sviluppo restano fuori dalla release:** sezione Debug del menù (simulatore, test suite), test helper `[debug]` di `config.ini`, snapshot.
 
 ## Meccanica di breeding (fonti: wiki, Breeding Manager, cat-bridge)
@@ -43,14 +43,12 @@ I numeri restano questi anche se il menù li mostra in ordine di difficoltà (Du
 
 | Asse | 3 Duro (hard mode) | 0 Vanilla | 1 Mite | 2 Nessuno |
 |---|---|---|---|---|
-| **Inbreeding** | `breed` riceve `min(1, coi × 2)` | invariato | `breed` riceve `coi × 0.5` | `breed` riceve `coi = 0`; in più si rimuove dal gattino ogni disordine (non in whitelist) che nessun genitore aveva (= il tiro da inbreeding, compreso il 2% minimo) |
+| **Inbreeding** | `breed` riceve `min(1, coi × 2)` | invariato | `breed` riceve `coi × 0.5` | `breed` riceve `coi = 0`; in più si rimuove dal gattino ogni disordine che nessun genitore aveva (= il tiro da inbreeding, compreso il 2% minimo) |
 | **Eredità** | ogni tratto negativo dei genitori ha una **seconda possibilità** di passare (vedi sotto) | invariato | ogni disordine e ogni parte difettosa dei genitori ha il 50% di probabilità di essere bloccata | nessun disordine né parte difettosa passa dai genitori |
 
 Effetto atteso del livello Duro:
 - **Inbreeding:** una coppia con coi 25% si comporta come se avesse coi 50%. I difetti nuovi passano dal 37.5% al 75%, il disordine da inbreeding dal 4% al 14%, e raddoppia anche il malus `−2·coi%` sull'eredità delle parti difettose. Il gattino tiene il coi vero, come negli altri livelli.
 - **Eredità:** i disordini passano circa dal 15% al 27.75% per genitore (`1 − 0.85²`). Le parti difettose passano da `p` a `p + (1 − p)·0.5`.
-- I disordini in whitelist non sono mai amplificati: seguono le regole vanilla. I difetti non hanno whitelist: in Duro sono amplificati tutti.
-
 Preset nel menù:
 - Vanilla: 0/0
 - Assistito: 1/1
@@ -64,13 +62,13 @@ Preset nel menù:
 real_coi = coi
 coi' = {0: coi, 1: coi × 0.5, 2: 0, 3: min(1, coi × 2)}[inbreeding]
 if heredity in {1, 2}:
-    for each parent, each disorder slot, if not whitelisted and (heredity == 2 or rand < 0.5):
+    for each parent, each disorder slot non vuoto, if heredity == 2 or rand < 0.5:
         nascondi lo slot: scambia i byte della stringa con una stringa locale "None" e metti il livello a 1 (lo slot vuoto del gioco, verificato in S3), poi ripristina stringa e livello
 orig(kitten, A, B, coi', furniture)
 ripristina gli slot dei genitori (sempre, anche se orig fallisce)
 kitten->coi = real_coi                      # il gattino resta "Inbred" e il pedigree è corretto
 if inbreeding == 2:
-    rimuovi dal gattino i disordini non in whitelist che non erano in A né in B (lista originale)
+    rimuovi dal gattino i disordini che non erano in A né in B (lista originale)
 if heredity in {1, 2}:
     for each slot di parte del corpo del gattino:
         if è un difetto, uguale alla parte di A o di B nello stesso slot,
@@ -79,9 +77,9 @@ if heredity in {1, 2}:
             else con la parte simmetrica del gattino se normale,
             else con una parte generata dal gioco (funzione stray bodyparts di Amoeba)
 if heredity == 3:                            # hard mode: seconda possibilità
-    for each genitore P con disordini non in whitelist:
+    for each genitore P con disordini:
         if il gattino non ha nessun disordine di P, ha uno slot libero, and rand < 0.15:
-            copia nel gattino un disordine casuale (non in whitelist) di P, con il suo livello
+            copia nel gattino un disordine casuale di P, con il suo livello
     for each slot di parte del corpo:
         if il gattino ha una parte normale, un genitore ha un difetto in quello slot,
            and rand < 0.5:
@@ -94,28 +92,57 @@ Casi limite accettati:
 
 Sono entrambi rari.
 
-## Whitelist
+## Nomi e testi (decisi il 2026-10-05)
 
-Solo **disordini** (chiave `[whitelist] disorders` in `config.ini`). Default: i disordini puramente positivi, o scelti dal giocatore tramite un evento (fontana, desideri MonkeyPaw, idolo demoniaco, Glorg).
+Regole di stile: inglese, parole semplici, una riga per spiegazione, nessun termine tecnico (coi, hook, slot) nel menù.
 
-Un disordine in whitelist:
-- non viene mai nascosto ai genitori, quindi si eredita con le regole vanilla;
-- non viene mai rimosso dal gattino;
-- non viene mai amplificato in Duro.
+**Perché questi nomi:**
+- "None" era ambiguo: "Heredity: None" sembrava "nessuna ereditarietà", cioè niente stat né abilità dai genitori.
+- "Hard" stonava accanto a livelli che descrivono un'intensità.
+- "Perfect genetics" prometteva stat perfette.
 
-Un disordine in whitelist non riceve mai probabilità più alte del vanilla: la whitelist impedisce solo che venga tolto.
+I nuovi nomi dicono **cosa** viene regolato (penalità e difetti) e **quanto**.
 
-Modificare la whitelist dal menù è il primo lavoro dopo la v1 (S10 in PLAN.md): due colonne, **Protetti | Rimovibili**, con ricerca, tooltip con l'effetto e "Ripristina default". Niente mutazioni né difetti nell'editor: sarebbe selezione genetica, fuori dallo scopo della mod ("non voglio più gestire l'inbreeding").
+**Assi** (etichetta, poi riga grigia sotto):
+
+| Asse (chiave `.ini`) | Etichetta | Spiegazione nel menù |
+|---|---|---|
+| `inbreeding` | Inbreeding penalties | New disorders and birth defects caused by breeding related cats. |
+| `heredity` | Inherited flaws | Disorders and birth defects passed down from the parents. |
+
+**Livelli** (in quest'ordine nel menù; il valore nel `.ini` resta quello di sempre):
+
+| Valore `.ini` | Livello | Tooltip: Inbreeding penalties | Tooltip: Inherited flaws |
+|---|---|---|---|
+| 2 | Off | Related parents count as unrelated. | Parents never pass on disorders or birth defects. |
+| 1 | Reduced | Inbreeding counts half. | Half the usual chance. |
+| 0 | Normal | Game default. | Game default. |
+| 3 | Increased | Inbreeding counts double. | Flaws get a second chance to pass on. |
+
+**Preset** (tooltip di una riga):
+
+| Preset | Valori (inbreeding/heredity) | Tooltip |
+|---|---|---|
+| Vanilla | 0/0 | The game's own rules. |
+| Gentle | 1/1 | Half the penalties and flaws. |
+| Carefree | 2/0 | Breed relatives freely; parents still pass on their own flaws. |
+| Clean | 2/2 | No disorders or birth defects from breeding. |
+| Hardcore | 3/3 | Inbreeding hits harder and flaws spread more. |
+
+In fondo al menù: "F8: show/hide · Settings are saved automatically".
+Stato: "Active · Mewgenics 1.1.21239" (verde) oppure "Inactive: unsupported game version (needs 1.1.21239)" (rosso).
+
+Cosa la mod **non** tocca (da dire nel README): abilità attive e passive, stat, mutazioni normali, gatti già nati. Agisce solo nel momento in cui nasce un gattino.
 
 ## Menù
 
 Overlay Dear ImGui sopra il rendering del gioco (OpenGL via SDL3), copiato dall'approccio di Amoeba (`reference/mewgenics_analysis/cpp/amoeba/amoeba_imgui.cpp`, hook `SDL_GL_SwapWindow` + `SDL_PollEvent`). Si apre e chiude con **F8**.
 
 Contenuto:
-- 2 selettori a 4 livelli (Duro / Vanilla / Mite / Nessuno);
-- 5 pulsanti preset;
-- riga di stato (hook attivo / versione del gioco non supportata);
-- solo nella build di sviluppo: la sezione Debug (simulatore, test suite).
+- 2 selettori a 4 livelli (Off / Reduced / Normal / Increased), ognuno con una riga di spiegazione;
+- 5 pulsanti preset con tooltip;
+- riga di stato e riga di aiuto (testi nella sezione "Nomi e testi");
+- solo nella build di sviluppo: un header "Developer tools" in fondo (simulatore, test suite).
 
 Ogni modifica si salva subito nel `.ini` (`WritePrivateProfileStringW`).
 

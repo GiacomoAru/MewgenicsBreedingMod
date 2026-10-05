@@ -95,8 +95,21 @@ AmoeboidErrorCode on_attach() {
     // D::info("Executable mapped size: {}\n", host_exec_image_size);
     // D::info("Executable SHA-256: {}", G.exe_actual_sha256.has_value() ? hash256bit_to_string(G.exe_actual_sha256.value()) : "<unknown>");
 
-    // Do not install any hooks if a hash mismatch was detected.
-    // Instead exit this function. The DLL will be loaded, but it will effectively be inactive.
+    // The menu hooks (SDL exports of the exe, group 1) are installed first and always, so that the menu can tell the
+    // player when the mod is inactive. Everything else needs a supported game version.
+    G.dll_can_self_eject = true;
+    const bool use_mewjector = SFunctionHookRegistry::api_is_present(EFunctionHookProvider::Mewjector);
+    const EFunctionHookProvider provider = use_mewjector ? EFunctionHookProvider::Mewjector : EFunctionHookProvider::Detours;
+    if(use_mewjector) {
+        G.dll_can_self_eject = false;
+    }
+    if(!SFunctionHookRegistry::resolve_hooks(host_exec_base_va, host_exec_pe_view, 1) ||
+       !SFunctionHookRegistry::install_hooks(provider, 1)) {
+        return AmoeboidErrorCode::FailedToHook;
+    }
+
+    // Do not install the breeding hook if a hash mismatch was detected.
+    // The DLL stays loaded, but effectively inactive (the menu says so).
     if(G.exe_hash_mismatch_detected) {
         return AmoeboidErrorCode::HashMismatch;
     }
@@ -112,31 +125,17 @@ AmoeboidErrorCode on_attach() {
         if(!SFunctionHookRegistry::resolve_hooks(host_exec_base_va, host_exec_pe_view, 0)) {
             return AmoeboidErrorCode::FailedToResolveSymbol;
         }
-        // Group 1: SDL exports of the exe, located by GetProcAddress
-        if(!SFunctionHookRegistry::resolve_hooks(host_exec_base_va, host_exec_pe_view, 1)) {
-            return AmoeboidErrorCode::FailedToResolveSymbol;
-        }
     }
 
-    // Try to install function hooks
+    // Install the breeding hook
     {
         MAKE_STOPWATCH_SCOPE(sct, "function hook installation");
-        G.dll_can_self_eject = true;
-        if(SFunctionHookRegistry::api_is_present(EFunctionHookProvider::Mewjector)) {
-            // Use Mewjector if present for coordinated hooking
-            if(!SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Mewjector, 0) ||
-               !SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Mewjector, 1)) {
-                return AmoeboidErrorCode::FailedToHook;
-            }
-            G.dll_can_self_eject = false;
-        } else {
-            if(!SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Detours, 0) ||
-               !SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Detours, 1)) {
-                return AmoeboidErrorCode::FailedToHook;
-            }
+        if(!SFunctionHookRegistry::install_hooks(provider, 0)) {
+            return AmoeboidErrorCode::FailedToHook;
         }
     }
 
+    G.mod_active = true;
     clean_breeding_init();
     return AmoeboidErrorCode::Success;
 }
