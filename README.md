@@ -2,6 +2,8 @@
 
 A Mewgenics mod that lets you tune how breeding passes on disorders and birth defects. Press **F8** in game to open the menu.
 
+The menu uses the game's own fonts and paper art, read from your own game files while it runs (nothing from the game is copied or shipped); if they cannot be read it falls back to a plain style.
+
 Download and page on Nexus Mods: <https://www.nexusmods.com/mewgenics/mods/543>
 
 ## How it works

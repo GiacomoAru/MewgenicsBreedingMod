@@ -282,6 +282,38 @@ Decisione dell'utente del 2026-10-05: si pubblica. Il repo GitHub è già pubbli
 - [x] Ricostruisci il pacchetto di release e controlla il contenuto dello zip. Poi 🛑 l'utente fa una prova finale: installa dallo zip in una cartella `mods` pulita di Mewtator, gioca una notte e verifica che F8 mostri "Active". (fatto; prova finale confermata dall'utente)
 - [ ] Commit, tag `v1.0.0` e push del tag (il repo è dell'utente, che ha già chiesto di pubblicare).
 
+## S11. Menù con il look del gioco (v1.1.0)
+
+Decisione dell'utente del 2026-10-05: il menù deve avere stile e font del gioco, come le mod "Auto Furniture" e "Combat Roster Panel".
+
+**Approccio scelto:** quello di **Combat Roster Panel** ([TotSamiyMorzh/mewgenics-combat-roster](https://github.com/TotSamiyMorzh/mewgenics-combat-roster), MIT, clonato in `reference/mewgenics-combat-roster`). Usa la nostra stessa tecnologia (ImGui 1.92 + Mewjector, stessa versione del gioco), ma legge font, carta e grafica **dal `resources.gpak` dell'utente mentre il gioco gira**. Non distribuisce file del gioco, e così deve restare anche da noi.
+
+Scartato: l'approccio di Auto Furniture (`reference/mewgenics-mods`), che genera file SWF e si integra nell'interfaccia nativa del gioco. È più bello ma richiede molto reverse engineering della UI ed è fragile.
+
+- [x] Porta da `reference/mewgenics-combat-roster/src` solo quello che serve: (fatto: `src/clean_breeding/gamelook/` con gpak, swf, fontloader, assets ridotto e `gamelook.cpp`; `stb_image.h` in `src/lib/stb/`; licenza e crediti in ATTRIBUTION.md, LICENSE.md)
+  - `gpak.cpp/.h`: lettura dell'archivio;
+  - `swf.cpp/.h`: rasterizzatore SWF;
+  - `fontloader.cpp/.h`: font SWF del gioco in ImGui, con il fallback CJK;
+  - da `assets.cpp/.h`, la parte che carica `swfs/ui.swf` e la bitmap della carta (`asset_bitmap`, `kPaperBitmap = 1`), più il worker thread;
+  - da `panel.cpp`, la funzione `paper()` (carta in 9-slice) e i colori `kInk`, `kInkSoft`, `kPaperTint`;
+  - da `overlay.cpp` righe ~125-165 e ~248-253: lo stile ImGui (`StyleColorsLight` più colori carta e inchiostro) e il caricamento dei font tra un frame e l'altro;
+  - `third_party/stb_image.h`.
+
+  Niente ritratti, icone, gon, loc, roster: non servono. Aggiungi la licenza e i crediti di Combat Roster Panel in `ATTRIBUTION.md`, `LICENSE.md` ("Copyright (c) 2026 Combat Roster Panel authors").
+- [x] Il menù F8 usa:
+  - il font del gioco per titolo e testi;
+  - lo sfondo di carta della finestra disegnato con `paper()`;
+  - tooltip sulla stessa carta;
+  - pulsanti e combo con i colori carta e inchiostro.
+
+  La struttura del menù e i testi di DESIGN.md non cambiano.
+- [x] Fallback: se gli asset non si caricano (gpak non trovato, errore di parsing), il menù deve funzionare con lo stile attuale e Segoe UI, e scrivere una riga nel log. Il caricamento non deve mai bloccare il gioco: niente lavoro pesante nel thread di render. (flag dev `[debug] force_default_style=1` per provarlo; il caricamento è in un thread a parte, il render non aspetta)
+- [ ] Check:
+  - [x] la build passa;
+  - [x] (confermato dall'utente: "mi sembra buono"; log: fonti e carta caricati, nessun crash) 🛑 l'utente apre il menù nel gioco: font e carta come quelli del gioco, testi leggibili a 1280×720 e a 1920×1080, nessun calo di FPS visibile;
+  - 🛑 con il gpak rinominato o assente (prova su una copia, mai sull'originale; oppure simulando l'errore con un flag dev), il menù si apre con lo stile di fallback;
+  - [x] lo zip di release non contiene file estratti dal gioco (niente `.swf`, `.png`, `.ttf` del gioco). (verificato su `UnnaturalSelection-1.1.0.zip`: nessun .swf/.png/.ttf/.gpak)
+
 ## S10. ~~Editor della whitelist~~ (annullato il 2026-10-05: la whitelist è stata tolta del tutto)
 
 ## Dopo (non ora)

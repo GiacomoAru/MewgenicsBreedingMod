@@ -9,6 +9,13 @@ This project gratefully uses the following libraries.
   * `Copyright (c) Microsoft Corporation.`
   * MIT License
   * https://github.com/microsoft/Detours/blob/main/LICENSE
+* Combat Roster Panel
+  * Source of the code that reads the game's own fonts and paper art from the player's `resources.gpak` at runtime
+    (`gamelook/gpak`, `gamelook/swf`, `gamelook/fontloader`, parts of `gamelook/assets`, and the paper drawing, colours
+    and renderer-rebuild code in `gamelook/gamelook.cpp` and `menu.cpp`). Nothing from the game is copied or shipped.
+  * `Copyright (c) 2026 Combat Roster Panel authors`
+  * MIT License
+  * https://github.com/TotSamiyMorzh/mewgenics-combat-roster/blob/main/LICENSE
 * Dear ImGui
   * Used for the in-game overlay menu.
   * `Copyright (c) 2014-2026 Omar Cornut`  
@@ -29,6 +36,11 @@ This project gratefully uses the following libraries.
   * `Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>`
   * zlib License
   * https://github.com/libsdl-org/SDL/blob/main/LICENSE.txt
+* stb_image
+  * Used for its zlib inflate, to read the bitmaps of the game's SWF files.
+  * `Sean Barrett`
+  * MIT License / Public Domain
+  * https://github.com/nothings/stb/blob/master/LICENSE
 * STL
   * Referenced to write `types/msvc.hpp`.
   * `Copyright (c) Microsoft Corporation.`

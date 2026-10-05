@@ -23,6 +23,7 @@ struct Config {
     int inbreeding = 0;
     int heredity = 0;
 #if CB_DEV_TOOLS
+    bool force_default_style = false; // [debug] force_default_style=1: skip the game look to test the fallback
     bool developer_tools = false; // [debug] developer_tools=1 in config.ini; never settable from the menu
 #endif
 };

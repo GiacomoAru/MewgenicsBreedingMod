@@ -27,6 +27,9 @@ foreach ($f in "LICENSE.md", "ATTRIBUTION.md", "README.md") { Copy-Item (Join-Pa
 
 $zip = Join-Path $outDir "UnnaturalSelection-$version.zip"
 if (Test-Path $zip) { Remove-Item $zip }
-Compress-Archive -Path $folder -DestinationPath $zip
+# tar (bsdtar, built into Windows 10+) writes "/" separators; Compress-Archive on PowerShell 5.1 writes "\", which some unzip tools mishandle
+# Windows' own tar.exe by full path: another tar earlier in PATH (e.g. Git's GNU tar) does not understand "C:\..." paths
+& (Join-Path $env:SystemRoot "System32\tar.exe") -a -c -f $zip -C $stage UnnaturalSelection
+if ($LASTEXITCODE) { throw "tar failed" }
 Remove-Item $stage -Recurse -Force
 Write-Host "Packaged $zip"

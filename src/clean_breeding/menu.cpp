@@ -1,5 +1,6 @@
 ﻿#include "amoeboid.hpp"
 #include "config.hpp"
+#include "gamelook/gamelook.h"
 #include <algorithm>
 #include <iterator>
 #if CB_DEV_TOOLS
@@ -13,6 +14,7 @@
 
 #include "SDL3/SDL.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_sdl3.h"
 
@@ -22,6 +24,31 @@
 namespace {
     bool g_initialized = false;
     bool g_visible = false;
+    SDL_GLContext g_gl_ctx = nullptr;
+}
+
+// The game recreates its GL context on a resolution change. GL names belong to the old context, so the renderer
+// backend is re-initialised from scratch and its textures re-requested. The old book-keeping is abandoned rather
+// than destroyed: calling glDelete* in the NEW context could delete the game's own objects that share the numbers.
+// (From Combat Roster Panel's overlay.cpp, see ATTRIBUTION.md.)
+static void ensure_gl() {
+    SDL_GLContext ctx = SDL_GL_GetCurrentContext();
+    if(ctx == nullptr || ctx == g_gl_ctx) {
+        return;
+    }
+    D::info("Menu: GL context changed, rebuilding the renderer");
+    ImGuiIO &io = ImGui::GetIO();
+    io.BackendRendererUserData = nullptr;
+    io.BackendRendererName = nullptr;
+    io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasTextures);
+    for(ImTextureData *tex : ImGui::GetPlatformIO().Textures) {
+        tex->SetTexID(ImTextureID_Invalid);
+        tex->BackendUserData = nullptr;
+        tex->SetStatus(ImTextureStatus_WantCreate);
+    }
+    gamelook::gl_context_lost();
+    ImGui_ImplOpenGL3_Init();
+    g_gl_ctx = ctx;
 }
 
 // Names and texts: docs/DESIGN.md, section "Nomi e testi". Level values in config.ini never change (0 Normal,
@@ -32,14 +59,9 @@ static const char *const AXIS_TOOLTIPS[2][4] = { // [axis][index into LEVEL_ORDE
     {"Parents never pass on disorders or birth defects.", "Half the usual chance.", "Game default.", "Flaws get a second chance to pass on."},
 };
 
-// Tooltip placed to the right of the mouse cursor (the default position is under the game's own cursor).
+// Tooltip to the right of the mouse cursor (on the game's paper when available).
 static void tip(const char *text) {
-    const ImVec2 mouse = ImGui::GetIO().MousePos;
-    ImGui::SetNextWindowPos(ImVec2(mouse.x + 48.0f, mouse.y + 6.0f));
-    if(ImGui::BeginTooltip()) {
-        ImGui::TextUnformatted(text);
-        ImGui::EndTooltip();
-    }
+    gamelook::tooltip(text);
 }
 
 // returns true when the level changed
@@ -73,12 +95,26 @@ static void draw_menu() {
     const ImVec2 screen = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowSize(ImVec2(std::min(std::max(screen.x * 0.62f, 700.0f), 980.0f), 0.0f), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImVec2(screen.x * 0.5f, screen.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if(ImGui::Begin(MOD_NAME, &g_visible)) {
+    // The game's look (fonts and paper from the player's resources.gpak) when it loaded, else the default ImGui style.
+    const bool look = gamelook::active();
+    if(look) gamelook::push_style();
+    const ImGuiWindowFlags flags = look ? (ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings) : 0;
+    if(ImGui::Begin(MOD_NAME, &g_visible, flags)) {
+        ImDrawList *dl = ImGui::GetWindowDrawList();
+        if(look) {
+            dl->ChannelsSplit(2);
+            dl->ChannelsSetCurrent(1); // content on top, the paper is drawn behind it at the end
+            ImGui::PushFont(gamelook::title_font(), gamelook::title_px());
+            ImGui::TextUnformatted(MOD_NAME);
+            ImGui::PopFont();
+            ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - ImGui::CalcTextSize("x").x - 2.0f * ImGui::GetStyle().FramePadding.x);
+            if(ImGui::SmallButton("x")) g_visible = false;
+        }
         if(G.mod_active) {
-            ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.35f, 1.0f), "Active Â· Mewgenics %s", EXE_VERSION);
+            ImGui::TextColored(look ? ImVec4(0.18f, 0.50f, 0.18f, 1.0f) : ImVec4(0.35f, 0.85f, 0.35f, 1.0f), "Active Â· Mewgenics %s", EXE_VERSION);
         } else {
             ImGui::PushTextWrapPos(0.0f);
-            ImGui::TextColored(ImVec4(0.95f, 0.35f, 0.35f, 1.0f), "Inactive: unsupported game version (needs %s)", EXE_VERSION);
+            ImGui::TextColored(look ? ImVec4(0.70f, 0.15f, 0.15f, 1.0f) : ImVec4(0.95f, 0.35f, 0.35f, 1.0f), "Inactive: unsupported game version (needs %s)", EXE_VERSION);
             ImGui::PopTextWrapPos();
         }
         ImGui::Separator();
@@ -187,8 +223,17 @@ static void draw_menu() {
         }
         }
 #endif
+        if(look) {
+            ImGuiWindow *win = ImGui::GetCurrentWindow();
+            dl->ChannelsSetCurrent(0);
+            dl->PushClipRectFullScreen();
+            gamelook::paper(dl, win->Pos, ImVec2(win->Pos.x + win->Size.x, win->Pos.y + win->Size.y));
+            dl->PopClipRect();
+            dl->ChannelsMerge();
+        }
     }
     ImGui::End();
+    if(look) gamelook::pop_style();
 }
 
 MAKE_PHOOK(1, "SDL_GL_SwapWindow",
@@ -198,18 +243,27 @@ MAKE_PHOOK(1, "SDL_GL_SwapWindow",
     if(!g_initialized) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
-        ImGui::GetStyle().FontScaleMain = 1.6f; // larger text: the game runs at high resolutions
         ImGuiIO &io = ImGui::GetIO();
         io.IniFilename = nullptr;
         io.LogFilename = nullptr;
         ImGui_ImplSDL3_InitForOpenGL(window, SDL_GL_GetCurrentContext());
         ImGui_ImplOpenGL3_Init();
+        g_gl_ctx = SDL_GL_GetCurrentContext();
+#if CB_DEV_TOOLS
+        const bool want_look = !config().force_default_style; // [debug] force_default_style=1 tests the fallback
+#else
+        const bool want_look = true;
+#endif
+        gamelook::start(want_look);
         g_initialized = true;
     }
 
     if(g_visible) {
+        ensure_gl();
+        gamelook::before_frame();
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL3_NewFrame();
+        gamelook::apply_scale(ImGui::GetIO().DisplaySize.y);
         ImGui::NewFrame();
         draw_menu();
         ImGui::Render();
