@@ -1,4 +1,5 @@
-﻿#include "simulator.hpp"
+﻿#include "config.hpp"
+#include "simulator.hpp"
 #include "snapshot.hpp"
 #include "amoeboid.hpp"
 #include "types/glaiel.hpp"
@@ -214,6 +215,7 @@ void write_snapshot(const char *phase, const std::vector<BreedEvent> &events, co
     w.begin_object();
     w.kv("phase", std::string_view(phase)).kv("seq", static_cast<int64_t>(S.seq)).kv("frame", static_cast<int64_t>(S.frame));
     w.kv("current_day", current_day());
+    w.kv("inbreeding", static_cast<int64_t>(config().inbreeding)).kv("heredity", static_cast<int64_t>(config().heredity));
     w.key("breed_events").begin_array();
     for(const auto &e : events) {
         w.begin_object().kv("call_no", static_cast<int64_t>(e.call_no)).kv("coi_param", e.coi_param);

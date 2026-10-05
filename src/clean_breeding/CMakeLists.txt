@@ -1,18 +1,29 @@
 project(clean_breeding)
 
+# Development tools (simulator, test suite, snapshots, Debug menu, [debug] test helpers). OFF for the release build.
+option(CB_DEV_TOOLS "Build the development tools" ON)
+if(CB_DEV_TOOLS)
+    set(CB_DEV_VALUE 1)
+else()
+    set(CB_DEV_VALUE 0)
+endif()
+
 # List build targets
 add_library(${PROJECT_NAME} SHARED
     amoeboid.cpp
     amoeboid.def
     clean_breeding.cpp
     breed.cpp
+    cat_factory.cpp
     config.cpp
     menu.cpp
-    simulator.cpp
-    snapshot.cpp
     utilities/mewjector_support.c
     utilities/pe_view.cpp
 )
+
+if(CB_DEV_TOOLS)
+    target_sources(${PROJECT_NAME} PRIVATE simulator.cpp snapshot.cpp)
+endif()
 
 # List dependencies
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -33,6 +44,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 target_compile_definitions(${PROJECT_NAME} PRIVATE
     WIN32_LEAN_AND_MEAN
     NOMINMAX
+    CB_DEV_TOOLS=${CB_DEV_VALUE}
 )
 
 # Set required flags

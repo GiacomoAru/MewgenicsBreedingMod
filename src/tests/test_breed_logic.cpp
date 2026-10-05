@@ -37,6 +37,17 @@ int main() {
     DisorderSlot e[2];
     assert(remove_new_disorders(e, parents, wl) == 0 && e[0].is_none());
 
+    // should_block
+    assert(!should_block(0, 0.0) && !should_block(3, 0.0));
+    assert(should_block(2, 0.99) && should_block(1, 0.49) && !should_block(1, 0.5));
+
+    // second_chance_candidates
+    const std::vector<std::string> pd = {"Pox", "EternalYouth"};
+    assert((second_chance_candidates(pd, {"None", "None"}, wl) == std::vector<std::string>{"Pox"})); // whitelist excluded
+    assert(second_chance_candidates(pd, {"Pox", "None"}, wl).empty());   // kitten already has one of the parent's
+    assert(second_chance_candidates({"None", "None"}, {"None", "None"}, wl).empty());
+    assert(second_chance_candidates({"EternalYouth", "None"}, {"None", "None"}, wl).empty()); // only whitelisted
+
     std::puts("test_breed_logic OK");
     return 0;
 }

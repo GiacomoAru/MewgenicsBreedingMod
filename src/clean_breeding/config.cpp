@@ -28,14 +28,6 @@ static void write_string(const wchar_t *section, const wchar_t *key, const std::
     }
 }
 
-static const wchar_t *mode_name(CleanseMode m) {
-    switch(m) {
-        case CleanseMode::Disorders: return L"disorders";
-        case CleanseMode::Defects: return L"defects";
-        default: return L"all";
-    }
-}
-
 Config &config() {
     static Config c;
     return c;
@@ -53,20 +45,12 @@ void config_load() {
     };
     c.inbreeding = level(L"inbreeding");
     c.heredity = level(L"heredity");
-    std::string mode = read_string(L"cleanse", L"mode", L"all");
-    c.cleanse_mode = mode == "disorders" ? CleanseMode::Disorders : (mode == "defects" ? CleanseMode::Defects : CleanseMode::All);
     c.whitelist_disorders = parse_csv(read_string(L"whitelist", L"disorders"));
-    c.whitelist_defects = parse_defects(read_string(L"whitelist", L"defects"));
-    D::info("Config: inbreeding={} heredity={} cleanse={} whitelist: {} disorders, {} defects",
-        c.inbreeding, c.heredity, convert_utf16_wstring_to_utf8_string(mode_name(c.cleanse_mode)),
-        c.whitelist_disorders.size(), c.whitelist_defects.size());
+    D::info("Config: inbreeding={} heredity={} whitelist: {} disorders",
+        c.inbreeding, c.heredity, c.whitelist_disorders.size());
 }
 
 void config_save_breeding() {
     write_string(L"breeding", L"inbreeding", std::to_wstring(config().inbreeding));
     write_string(L"breeding", L"heredity", std::to_wstring(config().heredity));
-}
-
-void config_save_cleanse_mode() {
-    write_string(L"cleanse", L"mode", mode_name(config().cleanse_mode));
 }

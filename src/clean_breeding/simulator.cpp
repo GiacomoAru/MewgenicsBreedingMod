@@ -2,8 +2,9 @@
 #include "amoeboid.hpp"
 #include "breed.hpp"
 #include "breed_logic.hpp"
+#include "cat_factory.hpp"
 #include "config.hpp"
-#include "defect_table.hpp"
+#include "parts.hpp"
 #include "snapshot.hpp"
 #include "types/glaiel.hpp"
 #include "types/msvc.hpp"
@@ -20,6 +21,7 @@
 #include <cstring>
 #include <deque>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -27,85 +29,13 @@
 #include <string>
 #include <string_view>
 
-// Ported from Amoeba (ffi/cat_factory.cpp): new_default_cat, make_kitten, name history suppression.
-
-MAKE_STPORTAL(0, TLS0OFF_xoshiro256p_rng_context,
-    Xoshiro256pContext, get_xoshiro256p_rng_context
-)
-
-MAKE_SFPORTAL(ADDRESS_glaiel__CatData_ctor,
-    CatData *, __cdecl, glaiel__CatData_ctor,
-    (CatData *thiss),
-    (thiss)
-)
-
-MAKE_SFPORTAL(ADDRESS_glaiel__CatData_dtor,
-    void, __cdecl, glaiel__CatData_dtor,
-    (CatData *thiss),
-    (thiss)
-)
-
 MAKE_SFPORTAL(ADDRESS_glaiel__CatData__breed,
     void, __cdecl, glaiel__CatData__breed_call,
     (CatData *p_kitten, CatData *p_parent_a, CatData *p_parent_b, double coi, void *vector_of_furniture_effects),
     (p_kitten, p_parent_a, p_parent_b, coi, vector_of_furniture_effects)
 )
 
-// breed creates the kitten's name through unk_init and registers it in the name history: suppress that
-// while simulating, so the simulator leaves no trace.
-static bool g_suppress_name_history = false;
-MAKE_SHOOK(0, ADDRESS_glaiel__CatData_unk_init,
-    void, __cdecl, glaiel__CatData_unk_init,
-    CatData *p_cat, void *ofstream_eliminated_by_opt, int32_t sex, bool register_in_name_history
-) {
-    glaiel__CatData_unk_init_hook.orig(p_cat, ofstream_eliminated_by_opt, sex,
-        g_suppress_name_history ? false : register_in_name_history);
-}
-
 namespace {
-
-struct CatDeleter {
-    void operator()(CatData *c) const {
-        glaiel__CatData_dtor(c);
-        operator delete(c);
-    }
-};
-using TempCat = std::unique_ptr<CatData, CatDeleter>;
-
-TempCat new_default_cat() {
-    CatData *c = static_cast<CatData *>(operator new(sizeof(CatData)));
-    std::memset(static_cast<void *>(c), 0, sizeof(CatData));
-    glaiel__CatData_ctor(c);
-    return TempCat(c);
-}
-
-constexpr int PART_COUNT = 14;
-// slot order of breed.cpp / snapshot.cpp -> data/mutations group (arms and legs both use `legs`)
-const char *const PART_GROUPS[PART_COUNT] = {
-    "body", "head", "tail", "legs", "legs", "legs", "legs", "eyes", "eyes", "eyebrows", "eyebrows", "ears", "ears", "mouth",
-};
-
-const BodyPartDescriptor *part_of(const BodyParts &bp, int i) {
-    const BodyPartDescriptor *slots[PART_COUNT] = {
-        &bp.body, &bp.head, &bp.tail, &bp.leg1, &bp.leg2, &bp.arm1, &bp.arm2,
-        &bp.lefteye, &bp.righteye, &bp.lefteyebrow, &bp.righteyebrow,
-        &bp.leftear, &bp.rightear, &bp.mouth,
-    };
-    return slots[i];
-}
-
-bool is_defect(std::string_view group, int32_t id) {
-    for(const auto &g : DEFECT_GROUPS) {
-        if(g.group == group) {
-            return std::find(g.ids.begin(), g.ids.end(), id) != g.ids.end();
-        }
-    }
-    return false;
-}
-
-bool is_whitelisted_defect(std::string_view group, int32_t id) {
-    return config().whitelist_defects.contains({std::string(group), id});
-}
 
 // (group, id) of every part slot, texture last; -1 / "" never happens for valid cats.
 struct PartRef { const char *group; int32_t id; };
@@ -177,7 +107,6 @@ void add_kitten(Acc &acc, const CatData &k, const CatData &a, const CatData &b, 
         any_def = true;
         acc.defect_slots_total++;
         acc.negative_total++;
-        if(is_whitelisted_defect(kp[i].group, kp[i].id)) acc.negative_whitelisted++;
         (kp[i].id == ap[i].id || kp[i].id == bp[i].id ? def_inh : def_new) = true;
     }
     acc.with_defect += any_def;
@@ -263,19 +192,8 @@ void finish() {
 // settings (so far: Vanilla, plus whitelist invariants).
 // ---------------------------------------------------------------------------------------------
 
-MAKE_SFPORTAL(ADDRESS_glaiel__CatData_unk_init,
-    CatData *, __cdecl, glaiel__CatData_unk_init_call,
-    (CatData *p_cat, void *ofstream_eliminated_by_opt, int32_t sex, bool register_in_name_history),
-    (p_cat, ofstream_eliminated_by_opt, sex, register_in_name_history)
-)
-
-MAKE_SFPORTAL(ADDRESS_glaiel__CatData_unk_init_bodyparts,
-    void, __cdecl, glaiel__CatData_unk_init_bodyparts_call,
-    (BodyParts *p_bodyparts),
-    (p_bodyparts)
-)
-
-struct Check { const char *metric; double expected, tol; };
+using Expect = std::function<double(int inbreeding, int heredity)>;
+struct Check { const char *metric; double tol; Expect expected; };
 struct TraitSpec {
     std::vector<std::string> disorders;                   // names, slots filled in order
     std::vector<std::pair<std::string, int>> defects;     // (group, id), all slots of the group
@@ -285,29 +203,55 @@ struct Case {
     double coi;
     TraitSpec a, b;
     std::vector<Check> checks;
-    bool any_settings; // expectation holds for every inbreeding/heredity level (otherwise only Vanilla)
 };
+
+// Expected rates (percent). New traits follow the game's formulas on the coi handed to breed (scaled_coi);
+// inbreeding level 2 also removes the new disorders. Inherited rates depend on the heredity level
+// (docs/DESIGN.md): Mild blocks each inherited trait with 50%, None blocks all, Hard gives a second chance
+// (disorder 15% if the kitten has none of that parent's, defect 50% if the part is normal).
+// P_UNIT = measured chance that a defective parent passes a defect of one slot unit (re_notes S5, about 49%).
+constexpr double P_UNIT = 0.49;
+
+Expect constant(double v) {
+    return [v](int, int) { return v; };
+}
+
+Expect by_heredity(double h0, double h1, double h2, double h3) {
+    return [=](int, int h) { return h == 0 ? h0 : (h == 1 ? h1 : (h == 2 ? h2 : h3)); };
+}
+
+Expect dis_new_rate(double coi) {
+    return [coi](int inb, int) {
+        return inb == 2 ? 0.0 : std::min(34.0, std::max(2.0, 40.0 * scaled_coi(coi, inb) - 6.0));
+    };
+}
+
+Expect def_new_rate(double coi) {
+    return [coi](int inb, int) { return std::min(100.0, 150.0 * scaled_coi(coi, inb)); };
+}
+
+// chance (percent) that a kitten inherits the defect of `units` independent slot units of one defective parent
+Expect defect_inherited(int units) {
+    auto any = [units](double p) { return 100.0 * (1.0 - std::pow(1.0 - p, units)); };
+    return by_heredity(any(P_UNIT), any(P_UNIT * 0.5), 0.0, any(P_UNIT + (1.0 - P_UNIT) * 0.5));
+}
 
 const std::vector<Case> &suite_cases() {
     static const std::vector<Case> cases = {
-        {"clean x clean", 0.0, {}, {}, {{"dis_new", 2, 1.5}, {"def_new", 0, 1}}, false},
-        {"clean x clean", 0.125, {}, {}, {{"dis_new", 2, 3}, {"def_new", 18.75, 3}}, false},
-        {"clean x clean", 0.25, {}, {}, {{"dis_new", 4, 3}, {"def_new", 37.5, 3}}, false},
-        {"clean x clean", 0.5, {}, {}, {{"dis_new", 14, 3}, {"def_new", 75, 3}}, false},
-        {"clean x clean", 1.0, {}, {}, {{"dis_new", 34, 3}, {"def_new", 100, 3}}, false},
-        {"A: Pox", 0.0, {{"Pox"}, {}}, {}, {{"dis_inh", 15, 2}}, false},
-        {"A: Pox, B: Flu", 0.0, {{"Pox"}, {}}, {{"Flu"}, {}}, {{"dis_inh", 27.75, 3}}, false},
-        {"A: Pox+Flu", 0.0, {{"Pox", "Flu"}, {}}, {}, {{"dis_inh", 15, 2}}, false},
-        {"A: EternalYouth (whitelist)", 0.0, {{"EternalYouth"}, {}}, {}, {{"dis_inh", 15, 2}}, true},
-        {"A: legs 700 (defect)", 0.0, {{}, {{"legs", 700}}}, {}, {}, false},
-        {"A: eyes 701 (defect)", 0.0, {{}, {{"eyes", 701}}}, {}, {}, false},
-        {"A: head 704 (whitelist)", 0.0, {{}, {{"head", 704}}}, {}, {}, false},
+        {"clean x clean", 0.0, {}, {}, {{"dis_new", 1.5, dis_new_rate(0.0)}, {"def_new", 1, def_new_rate(0.0)}}},
+        {"clean x clean", 0.125, {}, {}, {{"dis_new", 3, dis_new_rate(0.125)}, {"def_new", 3, def_new_rate(0.125)}}},
+        {"clean x clean", 0.25, {}, {}, {{"dis_new", 3, dis_new_rate(0.25)}, {"def_new", 3, def_new_rate(0.25)}}},
+        {"clean x clean", 0.5, {}, {}, {{"dis_new", 3, dis_new_rate(0.5)}, {"def_new", 3, def_new_rate(0.5)}}},
+        {"clean x clean", 1.0, {}, {}, {{"dis_new", 3, dis_new_rate(1.0)}, {"def_new", 3, def_new_rate(1.0)}}},
+        {"A: Pox", 0.0, {{"Pox"}, {}}, {}, {{"dis_inh", 2, by_heredity(15, 7.5, 0, 27.75)}}},
+        {"A: Pox, B: Flu", 0.0, {{"Pox"}, {}}, {{"Flu"}, {}}, {{"dis_inh", 3, by_heredity(27.75, 14.4, 0, 47.8)}}},
+        {"A: Pox+Flu", 0.0, {{"Pox", "Flu"}, {}}, {}, {{"dis_inh", 2, by_heredity(15, 11.25, 0, 27.75)}}},
+        {"A: EternalYouth (whitelist)", 0.0, {{"EternalYouth"}, {}}, {}, {{"dis_inh", 2, constant(15)}}},
+        {"A: legs+arms 700 (defect, 2 units)", 0.0, {{}, {{"legs", 700}}}, {}, {{"def_inh", 3, defect_inherited(2)}}},
+        {"A: eyes 701 (defect, 1 unit)", 0.0, {{}, {{"eyes", 701}}}, {}, {{"def_inh", 3, defect_inherited(1)}}},
+        {"A: head 704 (Cyclops, defect, 1 unit)", 0.0, {{}, {{"head", 704}}}, {}, {{"def_inh", 3, defect_inherited(1)}}},
     };
     return cases;
-}
-
-BodyPartDescriptor *part_mut(BodyParts &bp, int i) {
-    return const_cast<BodyPartDescriptor *>(part_of(bp, i));
 }
 
 void set_disorder(MsvcReleaseModeXString &s, int64_t &level, std::string_view name) {
@@ -317,23 +261,18 @@ void set_disorder(MsvcReleaseModeXString &s, int64_t &level, std::string_view na
 }
 
 void set_defect(CatData &c, const std::string &group, int32_t id) {
-    if(group == "texture") {
-        c.body_parts.texture_sprite_idx = static_cast<uint32_t>(id);
-        return;
-    }
-    for(int i = 0; i < PART_COUNT; i++) {
+    for(int i = 0; i < SLOT_COUNT; i++) {
         if(group == PART_GROUPS[i]) {
-            part_mut(c.body_parts, i)->part_sprite_idx = static_cast<uint32_t>(id);
+            set_part_id(c.body_parts, i, id);
         }
     }
 }
 
 // A random stray of the game, cleaned of every disorder and every defective part, then given the traits of `spec`.
 TempCat make_synthetic_parent(const TraitSpec &spec) {
-    TempCat c = new_default_cat();
-    glaiel__CatData_unk_init_call(c.get(), nullptr, 3, false);
-    glaiel__CatData_unk_init_bodyparts_call(&c->body_parts);
+    TempCat c;
     for(int tries = 0; tries < 50; tries++) {
+        c = make_random_stray(); // fresh stray per try, until it has no defective part
         PartRef refs[PART_COUNT + 1];
         part_refs(*c, refs);
         bool bad = false;
@@ -341,7 +280,6 @@ TempCat make_synthetic_parent(const TraitSpec &spec) {
             bad |= is_defect(r.group, r.id);
         }
         if(!bad) break;
-        glaiel__CatData_unk_init_bodyparts_call(&c->body_parts);
     }
     set_disorder(c->mutation_0, c->mutation_0_level, "None");
     set_disorder(c->mutation_1, c->mutation_1_level, "None");
@@ -356,7 +294,6 @@ TempCat make_synthetic_parent(const TraitSpec &spec) {
     }
     return c;
 }
-
 struct SuiteState {
     bool running = false;
     int n_per_case = 5000;
@@ -382,24 +319,12 @@ double metric(const Acc &x, std::string_view m) {
     return pct(x.def_new);
 }
 
-// Expected rate (percent) of a metric for case `c` under the current inbreeding level. dis_new / def_new follow
-// the game's formulas on the coi actually handed to breed (breed_logic.hpp scaled_coi); level 2 also removes the
-// new disorders. Other metrics (inherited, any) do not depend on the inbreeding level.
-double expected_rate(const Case &c, const Check &k, int inbreeding) {
-    double cp = scaled_coi(c.coi, inbreeding);
-    std::string_view m = k.metric;
-    if(m == "dis_new") return inbreeding == 2 ? 0.0 : std::min(34.0, std::max(2.0, 40.0 * cp - 6.0));
-    if(m == "def_new") return std::min(100.0, 150.0 * cp);
-    return k.expected;
-}
-
 // Ability check (the mod must not change it): baselines measured in S5 on the same synthetic parents.
 constexpr double ACTIVE_BASELINE = 21.6, ACTIVE_TOL = 3.0, PASSIVE_MAX = 3.0;
 
 void suite_finish_case(const Case &c) {
     const Config &cfg = config();
-    // Trait rates are judged when heredity is Vanilla (all inbreeding levels), or for cases that hold at any setting.
-    bool judged = !c.checks.empty() && (cfg.heredity == 0 || c.any_settings);
+    bool judged = !c.checks.empty();
     const Acc &x = U.acc;
     double act = x.n ? 100.0 * x.active_from_parent / x.n : 0.0;
     double pas = x.n ? 100.0 * x.passive_from_parent / x.n : 0.0;
@@ -408,7 +333,7 @@ void suite_finish_case(const Case &c) {
     std::string expect;
     for(const auto &k : c.checks) {
         double v = metric(x, k.metric);
-        double e = expected_rate(c, k, cfg.inbreeding);
+        double e = k.expected(cfg.inbreeding, cfg.heredity);
         traits_ok &= std::abs(v - e) <= k.tol;
         expect += std::format(" {}={:.1f} (exp {:.1f}+-{})", k.metric, v, e, k.tol);
     }
@@ -578,7 +503,7 @@ void simulator_tick() {
     }
     g_want_cats = false;
     if(U.running) {
-        Xoshiro256pContext &rng = get_xoshiro256p_rng_context();
+        Xoshiro256pContext &rng = game_rng();
         Xoshiro256pContext backup = rng;
         rng = U.rng;
         g_suppress_name_history = true;
@@ -599,7 +524,7 @@ void simulator_tick() {
         return;
     }
     constexpr int CHUNK = 200;
-    Xoshiro256pContext &rng = get_xoshiro256p_rng_context();
+    Xoshiro256pContext &rng = game_rng();
     Xoshiro256pContext backup = rng;
     rng = S.rng;
     g_suppress_name_history = true;

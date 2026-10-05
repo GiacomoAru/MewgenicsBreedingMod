@@ -8,10 +8,14 @@ Il **come**, step per step, sta in [PLAN.md](PLAN.md). Non cambiare le decisioni
 Mod DLL per Mewgenics (caricata da Mewjector, gestita da Mewtator) con un menù in-game (ImGui) che:
 
 1. riduce o elimina gli effetti genetici dell'**inbreeding**;
-2. riduce o elimina l'**eredità dai genitori** di disordini e difetti fisici;
-3. offre un pulsante **Cleanse** che rimuove i tratti negativi da tutti i gatti.
+2. riduce o elimina l'**eredità dai genitori** di disordini e difetti fisici.
 
-Una **whitelist** protegge i tratti "buoni" da tutte e tre le funzioni.
+Una **whitelist di disordini** protegge i disordini "buoni".
+
+**Aggiornamento 2026-10-05, deciso con l'utente:**
+- **Niente Cleanse nella mod.** Serviva solo per i test e non va pubblicato: il codice e le opzioni del Cleanse si rimuovono.
+- **Niente whitelist per i difetti di nascita.** Tutti i difetti sono negativi, senza eccezioni. Con Eredità Mite o Nessuno anche Cyclops e i difetti che danno abilità di un'altra classe vengono bloccati; chi li vuole tenere usa Eredità Vanilla.
+- **Gli strumenti di sviluppo restano fuori dalla release:** sezione Debug del menù (simulatore, test suite), test helper `[debug]` di `config.ini`, snapshot.
 
 ## Meccanica di breeding (fonti: wiki, Breeding Manager, cat-bridge)
 
@@ -45,7 +49,7 @@ I numeri restano questi anche se il menù li mostra in ordine di difficoltà (Du
 Effetto atteso del livello Duro:
 - **Inbreeding:** una coppia con coi 25% si comporta come se avesse coi 50%. I difetti nuovi passano dal 37.5% al 75%, il disordine da inbreeding dal 4% al 14%, e raddoppia anche il malus `−2·coi%` sull'eredità delle parti difettose. Il gattino tiene il coi vero, come negli altri livelli.
 - **Eredità:** i disordini passano circa dal 15% al 27.75% per genitore (`1 − 0.85²`). Le parti difettose passano da `p` a `p + (1 − p)·0.5`.
-- I tratti in whitelist non sono mai amplificati: seguono le regole vanilla.
+- I disordini in whitelist non sono mai amplificati: seguono le regole vanilla. I difetti non hanno whitelist: in Duro sono amplificati tutti.
 
 Preset nel menù:
 - Vanilla: 0/0
@@ -53,8 +57,6 @@ Preset nel menù:
 - Libero incrocio: 2/0
 - Genetica perfetta: 2/2
 - Hard mode: 3/3
-
-Cleanse ha 3 modalità: `disorders` (solo disordini), `defects` (solo parti difettose), `all`. Pulisce **tutto** ciò che è negativo, compresi i disordini presi giocando (malattie, eventi), tranne la whitelist.
 
 ## Come funziona l'hook su `breed`
 
@@ -71,7 +73,7 @@ if inbreeding == 2:
     rimuovi dal gattino i disordini non in whitelist che non erano in A né in B (lista originale)
 if heredity in {1, 2}:
     for each slot di parte del corpo del gattino:
-        if è un difetto non in whitelist, uguale alla parte di A o di B nello stesso slot,
+        if è un difetto, uguale alla parte di A o di B nello stesso slot,
            and (heredity == 2 or rand < 0.5):
             sostituisci con la parte dell'altro genitore se normale,
             else con la parte simmetrica del gattino se normale,
@@ -81,7 +83,7 @@ if heredity == 3:                            # hard mode: seconda possibilità
         if il gattino non ha nessun disordine di P, ha uno slot libero, and rand < 0.15:
             copia nel gattino un disordine casuale (non in whitelist) di P, con il suo livello
     for each slot di parte del corpo:
-        if il gattino ha una parte normale, un genitore ha un difetto non in whitelist in quello slot,
+        if il gattino ha una parte normale, un genitore ha un difetto in quello slot,
            and rand < 0.5:
             copia quel difetto nel gattino (se entrambi i genitori ce l'hanno, scegline uno a caso)
 ```
@@ -94,20 +96,16 @@ Sono entrambi rari.
 
 ## Whitelist
 
-Valori di default in `mod/CleanBreeding/config.ini`, scelti così:
-- **disordini puramente positivi, o scelti dal giocatore tramite un evento** (fontana, desideri MonkeyPaw, idolo demoniaco, Glorg);
-- **difetti fisici che danno accesso ad abilità di altre classi** o che sono usati nelle build (Cyclops).
+Solo **disordini** (chiave `[whitelist] disorders` in `config.ini`). Default: i disordini puramente positivi, o scelti dal giocatore tramite un evento (fontana, desideri MonkeyPaw, idolo demoniaco, Glorg).
 
-I difetti si identificano come `<gruppo>:<id>`, perché lo stesso id 700 esiste in ogni file `.gon` del gruppo.
-
-La whitelist agisce ovunque:
-- un tratto in whitelist non viene mai nascosto ai genitori, quindi si eredita con le regole vanilla;
+Un disordine in whitelist:
+- non viene mai nascosto ai genitori, quindi si eredita con le regole vanilla;
 - non viene mai rimosso dal gattino;
-- il Cleanse non lo tocca.
+- non viene mai amplificato in Duro.
 
-Con "Genetica perfetta" (coi = 0) non nascono difetti *nuovi*, nemmeno quelli in whitelist. I tratti buoni si mantengono solo per eredità.
+Un disordine in whitelist non riceve mai probabilità più alte del vanilla: la whitelist impedisce solo che venga tolto.
 
-Modificare la whitelist dal menù è un lavoro futuro: per ora si modifica il file `.ini` a gioco chiuso.
+Modificare la whitelist dal menù è il primo lavoro dopo la v1 (S10 in PLAN.md): due colonne, **Protetti | Rimovibili**, con ricerca, tooltip con l'effetto e "Ripristina default". Niente mutazioni né difetti nell'editor: sarebbe selezione genetica, fuori dallo scopo della mod ("non voglio più gestire l'inbreeding").
 
 ## Menù
 
@@ -116,13 +114,12 @@ Overlay Dear ImGui sopra il rendering del gioco (OpenGL via SDL3), copiato dall'
 Contenuto:
 - 2 selettori a 4 livelli (Duro / Vanilla / Mite / Nessuno);
 - 5 pulsanti preset;
-- selettore della modalità Cleanse e pulsante "Cleanse all cats" con conferma, che mostra quanti gatti e tratti verranno toccati;
-- riga di stato (hook attivo / versione del gioco non supportata).
+- riga di stato (hook attivo / versione del gioco non supportata);
+- solo nella build di sviluppo: la sezione Debug (simulatore, test suite).
 
 Ogni modifica si salva subito nel `.ini` (`WritePrivateProfileStringW`).
 
 ## Sicurezza
 
 - All'avvio la mod controlla lo SHA256 dell'exe e le signature. Se una manca, non installa nessun hook e il menù mostra "versione del gioco non supportata".
-- Prima del Cleanse fa un backup automatico: copia ogni `*.sav` di `%APPDATA%\Glaiel Games\Mewgenics\*\saves\` in `...\saves\backups\cleanbreeding_<timestamp>_<nome>.sav`. Se la copia fallisce, il Cleanse non parte.
-- Nessuna scrittura diretta sul file `.sav`. Si modifica la memoria e poi è il gioco a salvare.
+- Nessuna scrittura sul file `.sav`. La mod agisce solo sui gattini appena nati, in memoria, e poi è il gioco a salvare.

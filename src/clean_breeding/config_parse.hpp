@@ -28,26 +28,6 @@ inline std::set<std::string> parse_csv(std::string_view s) {
     return out;
 }
 
-// "head:704, tail:704" -> {("head",704),("tail",704)}; malformed items are ignored.
-inline std::set<std::pair<std::string, int>> parse_defects(std::string_view s) {
-    std::set<std::pair<std::string, int>> out;
-    for(const auto &item : parse_csv(s)) {
-        size_t colon = item.find(':');
-        if(colon == std::string::npos || colon == 0 || colon + 1 >= item.size()) {
-            continue;
-        }
-        try {
-            size_t used = 0;
-            int id = std::stoi(item.substr(colon + 1), &used);
-            if(used == item.size() - colon - 1) {
-                out.emplace(item.substr(0, colon), id);
-            }
-        } catch(...) {
-        }
-    }
-    return out;
-}
-
 inline int clamp_level(int v) {
     return v < 0 ? 0 : (v > 3 ? 3 : v);
 }

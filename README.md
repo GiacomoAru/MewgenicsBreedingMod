@@ -4,9 +4,7 @@ A Mewgenics mod (work in progress) that adds an in-game menu (**F8**) to tune br
 
 - **Inbreeding:** Hard / Vanilla / Mild / None. Scales how much inbreeding causes birth defects and disorders.
 - **Heredity:** Hard / Vanilla / Mild / None. Scales how often parents pass on their disorders and birth defects.
-- **Cleanse:** removes negative traits from every cat, after an automatic save backup.
-
-A whitelist in `config.ini` protects the traits worth keeping (e.g. Eternal Youth, Cyclops).
+A whitelist in `config.ini` protects the disorders worth keeping (e.g. Eternal Youth, Savant Syndrome).
 
 ## Install
 

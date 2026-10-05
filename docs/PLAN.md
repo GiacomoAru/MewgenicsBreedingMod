@@ -143,46 +143,57 @@ Serve a misurare i tassi senza giocare decine di notti.
 
 ## S7. Asse Eredità
 
-- [ ] Prima di `orig`, nascondi gli slot disordine dei genitori:
+- [x] Prima di `orig`, nascondi gli slot disordine dei genitori:
   - scambia i byte della stringa MSVC con una stringa `"None"` costruita localmente (e metti il livello a 1: è la rappresentazione dello slot vuoto, verificata in S3; approvato dall'utente il 2026-10-05), senza allocare né liberare; ripristina anche il livello;
   - ripristina in un blocco che gira **sempre** (RAII);
   - a livello 1, nascondi ogni slot con probabilità 0.5;
   - mai uno slot in whitelist.
 
   Usa un RNG della DLL (`std::mt19937_64` con seed da `std::random_device`), **non** l'RNG del gioco, per non alterarne la sequenza.
-- [ ] Dopo `orig`, sostituisci le parti difettose ereditate secondo DESIGN.md: altro genitore, poi lato simmetrico, poi parte generata. Per la parte generata chiama `CatData_unk_init_bodyparts` su un `BodyParts` temporaneo, con l'RNG salvato e ripristinato.
-- [ ] Livello 3 (Duro), dopo `orig`: la "seconda possibilità" di DESIGN.md.
+- [x] (il "lato simmetrico" non esiste: i due lati di una coppia hanno sempre lo stesso id, re_notes S3; si passa dall'altro genitore direttamente alla parte generata; la sostituzione è per unità a coppie, in `parts.hpp`) Dopo `orig`, sostituisci le parti difettose ereditate secondo DESIGN.md: altro genitore, poi lato simmetrico, poi parte generata. Per la parte generata chiama `CatData_unk_init_bodyparts` su un `BodyParts` temporaneo, con l'RNG salvato e ripristinato.
+- [x] Livello 3 (Duro), dopo `orig`: la "seconda possibilità" di DESIGN.md.
   - Disordini: 15% di copiarne uno del genitore se il gattino non ne ha nessuno di quel genitore e ha uno slot libero.
   - Parti: 50% di copiare un difetto di un genitore al posto di una parte normale nello stesso slot.
 
   Si scrive con gli stessi strumenti di S6 (`destroy()`/`construct()`, scrittura di `part_sprite_idx`). Mai su tratti in whitelist.
-- [ ] Check con il simulatore:
+- [x] (fatto: `whitelist_defects` e `parse_defects` rimossi da config, hook, simulatore e test; la chiave `defects` e i suoi commenti tolti da entrambi i `config.ini`; il caso "head 704" della suite ora è un normale caso di difetto) **Decisione dell'utente del 2026-10-05 (vedi DESIGN.md): niente whitelist per i difetti di nascita.** Prima dei check:
+  - togli `whitelist_defects` da config, breed, simulatore e test, e togli la chiave `defects` da `[whitelist]` in `mod/CleanBreeding/config.ini` (anche dalla copia installata in Mewtator);
+  - nel codice ogni difetto conta come negativo;
+  - nella suite, il caso "A: head 704 (whitelist)" diventa un caso normale di difetto (atteso 0% a livello 2).
+- [x] (7 giri della suite, N = 25000 per caso, 12/12 PASS; il caso "head 704" trattato ancora come protetto in quei giri, poi reso difetto normale senza rilanciare la suite: stesso codice del caso "occhi") Check con il simulatore:
   - genitore con 1 disordine non in whitelist: ereditati 0% a livello 2, circa 7.5% a livello 1, circa 27.75% a livello 3;
   - genitore con un difetto non in whitelist: a livello 3 ereditati circa `p + (1 − p)·0.5`, dove `p` è il tasso Vanilla misurato;
   - genitore con un difetto non in whitelist: ereditati 0% a livello 2, circa la metà del Vanilla a livello 1;
-  - genitore con `EternalYouth` o `head:704`: tassi uguali a Vanilla a tutti i livelli;
+  - genitore con `EternalYouth`: tassi uguali a Vanilla a tutti i livelli;
+  - genitore con `head:704` (Cyclops): trattato come ogni altro difetto;
   - dopo la simulazione i genitori sono identici a prima (confronta i loro byte prima e dopo);
   - con qualsiasi livello, il controllo abilità (attive, passive, stat) è uguale a Vanilla entro ±3 punti. Se non lo è 🛑.
-- [ ] 🛑 Test reale con l'utente: preset "Genetica perfetta", 2-3 notti, nessun gattino con tratti negativi fuori whitelist. Poi salva, ricarica, e controlla che il gioco non dia errori.
-- [ ] 🛑 Test reale "Hard mode" (3/3), 1-2 notti con una coppia consanguinea: il gioco non crasha, i gattini hanno più tratti negativi del solito, salva e ricarica OK.
-- [ ] **Report 002** (campagna di test S5-S7: tabelle dei tassi Duro / Vanilla / Mite / Nessuno per asse).
+- [x] (fatto dall'utente il 2026-10-05, 58 nascite osservate; 17 gattini senza alcun tratto negativo nelle chiamate 1-11 e 53-58, compatibili con Perfect genetics (l'impostazione per nascita non era ancora registrata negli snapshot, ora lo è), vedi Report 002) 🛑 Test reale con l'utente: preset "Genetica perfetta", 2-3 notti, nessun gattino con tratti negativi fuori whitelist. Poi salva, ricarica, e controlla che il gioco non dia errori.
+- [x] (fatto dall'utente, nessun crash, salva e riavvia ok) 🛑 Test reale "Hard mode" (3/3), 1-2 notti con una coppia consanguinea: il gioco non crasha, i gattini hanno più tratti negativi del solito, salva e ricarica OK.
+- [x] **Report 002** (campagna di test S5-S7: tabelle dei tassi Duro / Vanilla / Mite / Nessuno per asse).
 
-## S8. Cleanse
+## S8. Pulizia per la release (sostituisce il vecchio "Cleanse")
 
-- [ ] Backup come in DESIGN.md (`CopyFileW` di ogni `*.sav`). Se fallisce, annulla il Cleanse e mostra l'errore nel menù.
-- [ ] Pulsante "Cleanse all cats" con dialog di conferma che mostra un'anteprima: numero di gatti, disordini e parti che verranno toccati, secondo la modalità scelta.
-- [ ] Applica a tutti i gatti di `collect_all_cats()` (cat-bridge):
-  - svuota i disordini non in whitelist;
-  - sostituisci le parti difettose non in whitelist con il lato simmetrico se normale, altrimenti con una parte generata.
+Decisione dell'utente del 2026-10-05: il Cleanse non si pubblica, e gli strumenti di test non vanno nella release.
 
-  Mostra un riepilogo e logga ogni modifica (sql_key, slot, valore prima e dopo), così si può annullare.
-- [ ] Check 🛑 con l'utente:
-  - prima e dopo, i conteggi del menù corrispondono all'anteprima;
-  - i gatti si vedono corretti nel gioco;
-  - salvando e ricaricando le modifiche restano;
-  - un secondo Cleanse trova 0 cose da fare;
-  - il backup esiste e si apre (lettura SQLite in sola lettura).
-- [ ] **Report 003.**
+- [x] Togli il Cleanse:
+  - in config: `CleanseMode`, `[cleanse]`, `config_save_cleanse_mode`;
+  - nel menù: radio button e pulsante;
+  - in `mod/CleanBreeding/config.ini`;
+  - ogni riferimento in README e docs.
+
+  Non serve implementarlo.
+- [x] Opzione CMake `CB_DEV_TOOLS`:
+  - **ON** nella build di sviluppo (`scripts/build.ps1`, default attuale);
+  - **OFF** nella build di release;
+  - con OFF non vengono compilati simulatore, test suite, sezione Debug del menù, `snapshot.cpp`, test helper `[debug]` (`test_resources`, `test_disorders`, `test_simulation`), `last_breed.txt` e `sim_reports.txt`.
+
+  Usa `#if CB_DEV_TOOLS` o liste di sorgenti condizionali nel CMake.
+- [x] Il `config.ini` di release (`mod/CleanBreeding/config.ini`) contiene solo `[breeding]` e `[whitelist] disorders`. La sezione `[debug]` resta solo nella copia di test installata in Mewtator, oppure in un file `configs/config.dev.ini` che `install.ps1` copia quando si installa la build di sviluppo.
+- [ ] Check:
+  - [x] la build di release compila e la DLL non contiene le stringhe `"Run all tests"`, `"test_resources"`, `"Cleanse"` (controlla con `findstr /c:` o con Python);
+  - 🛑 nel gioco, con la build di release: F8 mostra solo livelli, preset e stato; il breeding funziona;
+  - [x] la build di sviluppo continua ad avere simulatore e test suite.
 
 ## S9. Packaging
 
@@ -190,16 +201,28 @@ Serve a misurare i tassi senza giocare decine di notti.
   - cosa fa la mod;
   - installazione (Mewtator più Mewjector);
   - versione del gioco supportata;
-  - livelli e whitelist;
-  - avviso sul backup;
+  - livelli e whitelist dei disordini;
   - crediti (polymeric, z3ndroot, MIT).
-- [ ] Prima di pacchettizzare: togliere da `mod/CleanBreeding/config.ini` la sezione `[debug]` (`test_resources`, `test_disorders`, `test_simulation`: sono strumenti di test per lo slot 1) e valutare se tenere nel DLL finale `snapshot.cpp` e i test helper (default spenti).
-- [ ] `scripts/package.ps1`: build, poi zip di `mod/CleanBreeding/` in `outputs/CleanBreeding-<versione>.zip`.
+- [ ] `scripts/package.ps1`: build di **release** (`CB_DEV_TOOLS=OFF`), poi zip di `mod/CleanBreeding/` in `outputs/CleanBreeding-<versione>.zip`.
 - [ ] Check: installazione pulita dallo zip in Mewtator su un'altra copia della cartella mods; il gioco parte e il menù funziona.
+
+## S10. Editor della whitelist dei disordini (prima modifica dopo la v1)
+
+- [ ] Estendi lo script generatore di S4 (o creane uno accanto) in modo che produca la lista di tutti i disordini di `data/passives/disorders.gon`, con nome e descrizione in inglese da `data/text/combined.csv` (`DISORDER_<KEY>_NAME/_DESC`) e le stat. Self-check: 125 disordini; `EternalYouth` ha nome e descrizione.
+- [ ] Nel menù F8, una scheda "Protected disorders":
+  - due colonne, **Protected | Removable**, con un campo di ricerca;
+  - un clic sposta un disordine nell'altra colonna;
+  - tooltip con descrizione e stat;
+  - pulsante "Reset to defaults";
+  - ogni cambio si salva subito in `[whitelist] disorders`.
+- [ ] Niente mutazioni né difetti nell'editor (decisione di DESIGN.md).
+- [ ] Check:
+  - lo script passa i suoi self-check;
+  - 🛑 nel gioco: spostare un disordine aggiorna il `.ini`, e dopo un riavvio la scelta resta;
+  - nel simulatore (build dev), un disordine appena reso "Protected" eredita con i tassi Vanilla anche con Eredità Nessuno.
 
 ## Dopo (non ora)
 
-- Modificare la whitelist dal menù.
 - Trovare la signature automaticamente dopo un update (`misc/find_rvas.py` del template).
 
 

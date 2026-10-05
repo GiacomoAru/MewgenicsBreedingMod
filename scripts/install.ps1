@@ -1,10 +1,13 @@
-﻿# Copies mod\CleanBreeding\ into Mewtator's mods folder.
+# Installs the mod into Mewtator's mods folder.
 #
-#   powershell -ExecutionPolicy Bypass -File scripts\install.ps1 [-ModsDir <path>]
+#   powershell -ExecutionPolicy Bypass -File scripts\install.ps1             # development build (outputs\dev) + configs\config.dev.ini
+#   powershell -ExecutionPolicy Bypass -File scripts\install.ps1 -Release    # release package (mod\CleanBreeding)
+#   ... [-ModsDir <path>]
 #
-# Default: the "Mewtator*\Mewtator\mods" folder inside this project.
+# Default mods folder: the "Mewtator*\Mewtator\mods" folder inside this project.
+# An existing config.ini in the mods folder is never overwritten (it holds the user's settings).
 
-param([string]$ModsDir)
+param([switch]$Release, [string]$ModsDir)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
@@ -17,8 +20,19 @@ if (-not (Test-Path $ModsDir)) { throw "Mods folder not found: $ModsDir" }
 
 $dest = Join-Path $ModsDir "CleanBreeding"
 New-Item -ItemType Directory -Force $dest | Out-Null
-# keep the user's config.ini if already installed
-$keepCfg = Test-Path "$dest\config.ini"
-Get-ChildItem "$root\mod\CleanBreeding" | Where-Object { -not ($keepCfg -and $_.Name -eq "config.ini") } |
-    Copy-Item -Destination $dest -Force
-Write-Host "Installed to $dest"
+$pkg = Join-Path $root "mod\CleanBreeding"
+
+if ($Release) {
+    $files = Get-ChildItem $pkg
+    $cfg = Join-Path $pkg "config.ini"
+} else {
+    $dll = Join-Path $root "outputs\dev\clean_breeding.dll"
+    if (-not (Test-Path $dll)) { throw "Development DLL not found: run scripts\build.ps1 first." }
+    $files = @(Get-Item (Join-Path $pkg "description.json"), (Get-Item $dll))
+    $cfg = Join-Path $root "configs\config.dev.ini"
+}
+$files | Where-Object { $_.Name -ne "config.ini" } | Copy-Item -Destination $dest -Force
+if (-not (Test-Path "$dest\config.ini")) {
+    Copy-Item $cfg "$dest\config.ini"
+}
+Write-Host "Installed ($(if ($Release) { 'release' } else { 'development' })) to $dest"

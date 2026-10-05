@@ -1,9 +1,11 @@
 ﻿#include "amoeboid.hpp"
+#include "config.hpp"
+#if CB_DEV_TOOLS
 #include <format>
 
 #include "breed.hpp"
-#include "config.hpp"
 #include "simulator.hpp"
+#endif
 #include "utilities/debug_console.hpp"
 #include "utilities/function_hook.hpp"
 
@@ -71,24 +73,7 @@ static void draw_menu() {
             config_save_breeding();
         }
 
-        ImGui::Separator();
-        ImGui::Text("Cleanse");
-        int mode = static_cast<int>(c.cleanse_mode);
-        bool mode_changed = false;
-        mode_changed |= ImGui::RadioButton("Disorders", &mode, static_cast<int>(CleanseMode::Disorders));
-        ImGui::SameLine();
-        mode_changed |= ImGui::RadioButton("Defects", &mode, static_cast<int>(CleanseMode::Defects));
-        ImGui::SameLine();
-        mode_changed |= ImGui::RadioButton("All", &mode, static_cast<int>(CleanseMode::All));
-        if(mode_changed) {
-            c.cleanse_mode = static_cast<CleanseMode>(mode);
-            config_save_cleanse_mode();
-        }
-        ImGui::BeginDisabled();
-        ImGui::Button("Cleanse all cats");
-        ImGui::EndDisabled();
-        ImGui::TextDisabled("(not available yet)");
-
+#if CB_DEV_TOOLS
         ImGui::Separator();
         if(ImGui::CollapsingHeader("Debug: breeding simulator")) {
             static int64_t parent_a = 0, parent_b = 0;
@@ -152,6 +137,7 @@ static void draw_menu() {
                 ImGui::EndChild();
             }
         }
+#endif
     }
     ImGui::End();
 }

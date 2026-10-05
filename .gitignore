@@ -9,3 +9,5 @@ reference/
 .claude/
 outputs/
 Mewtator*/
+build-release/
+mod/CleanBreeding/*.dll

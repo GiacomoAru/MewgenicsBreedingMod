@@ -46,3 +46,31 @@ inline int remove_new_disorders(DisorderSlot (&kitten)[2], const std::vector<std
     }
     return removed;
 }
+
+// Heredity levels 1 (Mild) and 2 (None): is an inherited trait blocked? `r` is a uniform random number in [0, 1).
+inline bool should_block(int heredity, double r) {
+    return heredity == 2 || (heredity == 1 && r < 0.5);
+}
+
+// Heredity level 3 (Hard): "second chance" probabilities (docs/DESIGN.md).
+inline constexpr double HARD_DISORDER_CHANCE = 0.15;
+inline constexpr double HARD_DEFECT_CHANCE = 0.5;
+
+// Hard mode, disorders: the disorders of one parent that may be copied to the kitten. Empty when the kitten already
+// has one of that parent's disorders (the vanilla roll already passed it on). Whitelisted disorders and "None" are
+// never candidates, so the whitelist is never amplified.
+inline std::vector<std::string> second_chance_candidates(const std::vector<std::string> &parent_disorders,
+                                                         const std::vector<std::string> &kitten_disorders,
+                                                         const std::set<std::string> &whitelist) {
+    std::vector<std::string> out;
+    for(const auto &p : parent_disorders) {
+        if(p == "None" || p.empty()) continue;
+        if(std::find(kitten_disorders.begin(), kitten_disorders.end(), p) != kitten_disorders.end()) {
+            return {};
+        }
+        if(!whitelist.contains(p)) {
+            out.push_back(p);
+        }
+    }
+    return out;
+}

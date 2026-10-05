@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#if CB_DEV_TOOLS
+
 // Shared state of the breed hook.
 //
 // Exporter: breed.cpp
@@ -20,3 +22,4 @@ extern LastBreed g_last_breed;
 
 // Load last_breed.txt (written by the hook) into g_last_breed, if present.
 void breed_load_last();
+#endif
