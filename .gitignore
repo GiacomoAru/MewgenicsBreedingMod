@@ -1,0 +1,11 @@
+CLAUDE.md
+docs/reports/repro/
+extracted/
+backups/
+build/
+*.obj
+*.pdb
+reference/
+.claude/
+outputs/
+Mewtator*/
