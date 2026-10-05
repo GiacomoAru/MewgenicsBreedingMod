@@ -5,6 +5,9 @@ add_library(${PROJECT_NAME} SHARED
     amoeboid.cpp
     amoeboid.def
     clean_breeding.cpp
+    breed.cpp
+    menu.cpp
+    snapshot.cpp
     utilities/mewjector_support.c
     utilities/pe_view.cpp
 )
@@ -12,6 +15,8 @@ add_library(${PROJECT_NAME} SHARED
 # List dependencies
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Detours
+    dear_imgui
+    Mewgenics_exports
     libtomcrypt
     mewjector
     SDL3::Headers

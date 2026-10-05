@@ -10,6 +10,8 @@ endif()
 
 # Read third-party library CMakeLists
 add_subdirectory(lib/Detours EXCLUDE_FROM_ALL)
+add_subdirectory(lib/imgui EXCLUDE_FROM_ALL)
+add_subdirectory(lib/Mewgenics EXCLUDE_FROM_ALL)
 add_subdirectory(lib/libtomcrypt EXCLUDE_FROM_ALL)
 add_subdirectory(lib/mewjector EXCLUDE_FROM_ALL)
 add_subdirectory(lib/SDL EXCLUDE_FROM_ALL)

@@ -51,34 +51,37 @@ Versione del gioco attesa: **1.1.21239**, SHA256 `4127cd6a792ae528bca6f65a8873dd
 
 ## S2. Overlay ImGui con F8
 
-- [ ] Aggiungi Dear ImGui in `src/lib/imgui/` (commit `b61e56346a92cfcaf1f43a545ca37b0b32239654`, lo stesso di Amoeba). Il CMake va preso da `reference/mewgenics_analysis/cpp/lib/cmake/imgui/CMakeLists.txt`.
-- [ ] Porta in `src/clean_breeding/menu.cpp` gli hook `SDL_GL_SwapWindow` e `SDL_PollEvent` da `amoeba_imgui.cpp`, togliendo tutto ciò che non serve: niente viewport multipli, niente demo.
-- [ ] F8 apre e chiude una finestra "Clean Breeding" che per ora mostra solo lo stato: versione della mod, hash OK, signature trovate.
-- [ ] Quando il menù è aperto e ImGui vuole input (`io.WantCaptureMouse/Keyboard`), gli eventi non arrivano al gioco.
-- [ ] Check 🛑 (con l'utente nel gioco):
-  - F8 mostra e nasconde la finestra;
-  - mentre la finestra è aperta i click sulla finestra non passano al gioco;
-  - il gioco va normalmente con la finestra chiusa.
+- [x] Aggiungi Dear ImGui in `src/lib/imgui/` (commit `b61e56346a92cfcaf1f43a545ca37b0b32239654`, lo stesso di Amoeba). Il CMake va preso da `reference/mewgenics_analysis/cpp/lib/cmake/imgui/CMakeLists.txt`.
+- [x] Porta in `src/clean_breeding/menu.cpp` gli hook `SDL_GL_SwapWindow` e `SDL_PollEvent` da `amoeba_imgui.cpp`, togliendo tutto ciò che non serve: niente viewport multipli, niente demo.
+- [x] F8 apre e chiude una finestra "Clean Breeding" che per ora mostra solo lo stato: versione della mod, hash OK, signature trovate.
+- [x] Quando il menù è aperto e ImGui vuole input (`io.WantCaptureMouse/Keyboard`), gli eventi non arrivano al gioco.
+- [x] Check 🛑 (con l'utente nel gioco):
+  - F8 mostra e nasconde la finestra (confermato dall'utente);
+  - mentre la finestra è aperta i click sulla finestra non passano al gioco (non dichiarato esplicitamente: l'utente ha detto "F8 funziona, procedi");
+  - il gioco va normalmente con la finestra chiusa (idem; log pulito: Mewjector "Integrity check: ALL OK", uscita ExitProcess, nessun crash report).
+
+**Note S2 (2026-10-05):** ImGui b61e563 scaricato (zip da GitHub ocornut/imgui, 2.4 MB, con ok dell'utente) e ridotto a core + backend SDL3/OpenGL3 + `imgui_stdlib` + `imconfig.h`, senza `imgui_demo.cpp`, in `src/lib/imgui/third_party/`; voce aggiunta in `ATTRIBUTION.md`. Serve anche `src/lib/Mewgenics/` (copiato da Amoeba): import lib generata da `Mewgenics.def` con gli export SDL dell'exe (il .def è dalla 1.0.20763, ma i 60 simboli SDL importati dalla DLL sono tutti presenti negli export dell'exe 1.1.21239, verificato con `dumpbin`). Il template non installava gli hook di gruppo 1 (hook per nome di export): aggiunti resolve e install del gruppo 1 in `amoeboid.cpp`. F8 è consumato dal nostro hook e non arriva al gioco. A menù chiuso gli eventi passano intatti e non si fa render ImGui.
 
 ## S3. Probe di `breed` in sola lettura
 
-- [ ] Aggiungi le signature `ADDRESS_glaiel__CatData__breed`, `CatData_ctor`, `CatData_dtor`, `CatData_unk_init`, `CatData_unk_init_bodyparts` e `TLS0OFF_xoshiro256p_rng_context` da `amoeba.hpp`. Aggiungi `types/glaiel_cat.hpp` di Amoeba se è più completo di quello del template.
-- [ ] Hook su `breed` che **non modifica niente**. Per ogni chiamata logga:
+- [x] Aggiungi le signature `ADDRESS_glaiel__CatData__breed`, `CatData_ctor`, `CatData_dtor`, `CatData_unk_init`, `CatData_unk_init_bodyparts` e `TLS0OFF_xoshiro256p_rng_context` da `amoeba.hpp`. Aggiungi `types/glaiel_cat.hpp` di Amoeba se è più completo di quello del template.
+- [x] Hook su `breed` che **non modifica niente**. Per ogni chiamata logga:
   - `coi` passato;
   - sql_key dei genitori;
   - i due slot disordine di ogni genitore (stringa più livello, e anche i byte grezzi della stringa se è vuota);
   - `part_sprite_idx` dei 14 slot più `texture_sprite_idx` di genitori e gattino;
   - `kitten->coi` dopo la chiamata originale;
   - i due slot disordine del gattino dopo la chiamata.
-- [ ] 🛑 L'utente fa passare 1-2 notti nel gioco, con cat che si accoppiano (meglio una coppia consanguinea).
-- [ ] Rispondi in `docs/re_notes.md`, con le prove:
+- [x] Aggiunto (su richiesta dell'utente, 2026-10-05) `src/clean_breeding/snapshot.cpp`: dopo ogni chiamata a `breed` scrive in `<cartella DLL>/snapshots/` file JSON con lo stato di tutti i gatti in memoria (chiavi, parti, disordini, passive, in casa/fuori, giorno), con l'evento breed (genitori e gattino come restituito da `breed`). Fasi: `after_breed` (frame dopo), `new_cats` (appena compare una chiave nuova), `timeout`. Così le risposte si ricavano dai dati e non dalla memoria dell'utente.
+- [x] 🛑 L'utente fa passare 1-2 notti nel gioco, con cat che si accoppiano (meglio una coppia consanguinea).
+- [x] Rispondi in `docs/re_notes.md`, con le prove:
   1. `breed` viene chiamata una volta per gattino? (gemelli = 2 chiamate?)
   2. Come è rappresentato uno slot disordine vuoto? (stringa vuota, `"None"`, livello 0?)
   3. `kitten->coi` dopo `breed` è uguale al parametro `coi`?
   4. Mappa slot → file `.gon`: body, head, tail, leg1, leg2, arm1 e arm2 (→ `legs`), lefteye e righteye (→ `eyes`), eyebrows, ears, mouth, texture. Conferma con cat-bridge DEVELOPMENT.md e con almeno un difetto visibile nel gioco.
   5. Se un gattino ha due disordini, slot 0 e 1 sono sempre riempiti in ordine?
-- [ ] Se una risposta contraddice DESIGN.md 🛑.
-- [ ] **Report 001** (`docs/reports/001_breed-probe_<data>.md` più il file repro), secondo le regole in CLAUDE.md.
+- [x] Se una risposta contraddice DESIGN.md 🛑. (Nessuna contraddizione; affinamento approvato dall'utente: in S7 nascondere un disordine con `"None"` livello 1 invece di una stringa vuota, perché lo slot vuoto del gioco è `"None"` livello 1.)
+- [x] **Report 001** (`docs/reports/001_breed-probe_<data>.md` più il file repro), secondo le regole in CLAUDE.md.
 
 ## S4. Dati: tabella difetti e config
 
@@ -89,7 +92,8 @@ Versione del gioco attesa: **1.1.21239**, SHA256 `4127cd6a792ae528bca6f65a8873dd
   - scrive con `WritePrivateProfileStringW`;
   - parsa la whitelist (disordini: nomi; difetti: `gruppo:id`);
   - se mancano valori usa i default di DESIGN.md (tutto a 0).
-- [ ] Menù: 2 selettori a 3 livelli (Vanilla / Mite / Nessuno), 4 pulsanti preset, selettore della modalità Cleanse. Ogni cambio si salva subito nel `.ini`. Il pulsante Cleanse per ora è disabilitato.
+- [ ] Il `config.ini` di riferimento è quello in `mod/CleanBreeding/config.ini` (sezioni `[breeding]`, `[cleanse]`, `[whitelist]`). Non riscriverlo da zero: quello di S1 aveva perso la whitelist ed era salvato con BOM UTF-8, che rompe `GetPrivateProfileStringW`. Va salvato in UTF-8 **senza BOM**, oppure in UTF-16 LE con BOM; `install.ps1` non deve sovrascrivere un `config.ini` già presente.
+- [ ] Menù: 2 selettori a 4 livelli (Duro / Vanilla / Mite / Nessuno; valori 3 / 0 / 1 / 2 come in DESIGN.md), 5 pulsanti preset (compreso "Hard mode" 3/3), selettore della modalità Cleanse. Ogni cambio si salva subito nel `.ini`. Il pulsante Cleanse per ora è disabilitato.
 - [ ] Check:
   - lo script di generazione passa i suoi assert;
   - 🛑 nel gioco: un cambio nel menù aggiorna il `.ini`, e riavviando il gioco i valori restano.
@@ -120,10 +124,11 @@ Serve a misurare i tassi senza giocare decine di notti.
 
 ## S6. Asse Inbreeding
 
-- [ ] Nell'hook di `breed`, implementa la parte inbreeding come in DESIGN.md: `coi × {1, 0.5, 0}`, `kitten->coi = real_coi`, e a livello 2 la rimozione dal gattino dei disordini nuovi non in whitelist. Per rimuovere usa la tecnica di `SET_PASSIVE` di cat-bridge: `destroy()` più `construct()` della rappresentazione "vuoto" trovata in S3; compatta gli slot se in S3 è risultato che servono in ordine.
+- [ ] Nell'hook di `breed`, implementa la parte inbreeding come in DESIGN.md: `coi'` = {0: coi, 1: coi × 0.5, 2: 0, 3: min(1, coi × 2)}, `kitten->coi = real_coi`, e a livello 2 la rimozione dal gattino dei disordini nuovi non in whitelist. Per rimuovere usa la tecnica di `SET_PASSIVE` di cat-bridge: `destroy()` più `construct()` della rappresentazione "vuoto" trovata in S3; compatta gli slot se in S3 è risultato che servono in ordine.
 - [ ] Check con il simulatore su una coppia con coi ≥ 0.25:
   - livello 1: i tassi "nuovi" corrispondono alla formula calcolata con coi/2;
   - livello 2: disordini nuovi 0% (tranne quelli in whitelist) e difetti nuovi 0%;
+  - livello 3 (Duro): i tassi "nuovi" corrispondono alla formula calcolata con `min(1, 2·coi)` (es. coi 0.25: difetti nuovi circa 75%);
   - con qualsiasi livello, `kitten->coi` è uguale al coi vero;
   - i tassi "ereditati" sono invariati rispetto a Vanilla.
 - [ ] Self-check di unità (funzione pura, senza gioco): `scaled_coi(coi, level)` e il filtro disordini su casi fissi, con un `assert` in un test in `src/tests/` o nella build Debug.
@@ -131,20 +136,27 @@ Serve a misurare i tassi senza giocare decine di notti.
 ## S7. Asse Eredità
 
 - [ ] Prima di `orig`, nascondi gli slot disordine dei genitori:
-  - scambia i byte della stringa MSVC con una stringa vuota costruita localmente, senza allocare né liberare;
+  - scambia i byte della stringa MSVC con una stringa `"None"` costruita localmente (e metti il livello a 1: è la rappresentazione dello slot vuoto, verificata in S3; approvato dall'utente il 2026-10-05), senza allocare né liberare; ripristina anche il livello;
   - ripristina in un blocco che gira **sempre** (RAII);
   - a livello 1, nascondi ogni slot con probabilità 0.5;
   - mai uno slot in whitelist.
 
   Usa un RNG della DLL (`std::mt19937_64` con seed da `std::random_device`), **non** l'RNG del gioco, per non alterarne la sequenza.
 - [ ] Dopo `orig`, sostituisci le parti difettose ereditate secondo DESIGN.md: altro genitore, poi lato simmetrico, poi parte generata. Per la parte generata chiama `CatData_unk_init_bodyparts` su un `BodyParts` temporaneo, con l'RNG salvato e ripristinato.
+- [ ] Livello 3 (Duro), dopo `orig`: la "seconda possibilità" di DESIGN.md.
+  - Disordini: 15% di copiarne uno del genitore se il gattino non ne ha nessuno di quel genitore e ha uno slot libero.
+  - Parti: 50% di copiare un difetto di un genitore al posto di una parte normale nello stesso slot.
+
+  Si scrive con gli stessi strumenti di S6 (`destroy()`/`construct()`, scrittura di `part_sprite_idx`). Mai su tratti in whitelist.
 - [ ] Check con il simulatore:
-  - genitore con 1 disordine non in whitelist: ereditati 0% a livello 2, circa 7.5% a livello 1;
+  - genitore con 1 disordine non in whitelist: ereditati 0% a livello 2, circa 7.5% a livello 1, circa 27.75% a livello 3;
+  - genitore con un difetto non in whitelist: a livello 3 ereditati circa `p + (1 − p)·0.5`, dove `p` è il tasso Vanilla misurato;
   - genitore con un difetto non in whitelist: ereditati 0% a livello 2, circa la metà del Vanilla a livello 1;
   - genitore con `EternalYouth` o `head:704`: tassi uguali a Vanilla a tutti i livelli;
   - dopo la simulazione i genitori sono identici a prima (confronta i loro byte prima e dopo).
 - [ ] 🛑 Test reale con l'utente: preset "Genetica perfetta", 2-3 notti, nessun gattino con tratti negativi fuori whitelist. Poi salva, ricarica, e controlla che il gioco non dia errori.
-- [ ] **Report 002** (campagna di test S5-S7: tabelle dei tassi Vanilla / Mite / Nessuno per asse).
+- [ ] 🛑 Test reale "Hard mode" (3/3), 1-2 notti con una coppia consanguinea: il gioco non crasha, i gattini hanno più tratti negativi del solito, salva e ricarica OK.
+- [ ] **Report 002** (campagna di test S5-S7: tabelle dei tassi Duro / Vanilla / Mite / Nessuno per asse).
 
 ## S8. Cleanse
 
@@ -179,6 +191,9 @@ Serve a misurare i tassi senza giocare decine di notti.
 
 - Modificare la whitelist dal menù.
 - Trovare la signature automaticamente dopo un update (`misc/find_rvas.py` del template).
+
+
+
 
 
 

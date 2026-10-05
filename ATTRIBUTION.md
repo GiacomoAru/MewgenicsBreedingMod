@@ -9,6 +9,11 @@ This project gratefully uses the following libraries.
   * `Copyright (c) Microsoft Corporation.`
   * MIT License
   * https://github.com/microsoft/Detours/blob/main/LICENSE
+* Dear ImGui
+  * Used for the in-game overlay menu.
+  * `Copyright (c) 2014-2026 Omar Cornut`  
+  * MIT License
+  * https://github.com/ocornut/imgui/blob/master/LICENSE.txt
 * LibTomCrypt
   * Used to hash Mewgenics.exe to detect version mismatches.
   * `LibTomCrypt, modular cryptographic library -- Tom St Denis`
@@ -37,3 +42,4 @@ This project gratefully uses the following libraries.
   * `Copyright (c) 2004-2024 Ero Carrera`
   * MIT License
   * https://github.com/erocarrera/pefile/blob/master/LICENSE
+

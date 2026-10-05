@@ -34,18 +34,25 @@ Fatti verificati da altri (cat-bridge, `reference/mewgenics-cat-bridge/docs/DEVE
 
 ## Livelli
 
-Ogni asse ha 3 livelli. Si salvano in `config.ini` come numero: 0 = Vanilla, 1 = Mite, 2 = Nessuno.
+Ogni asse ha 4 livelli. Si salvano in `config.ini` come numero: 0 = Vanilla, 1 = Mite, 2 = Nessuno, 3 = Duro.
+I numeri restano questi anche se il menù li mostra in ordine di difficoltà (Duro, Vanilla, Mite, Nessuno).
 
-| Asse | 0 Vanilla | 1 Mite | 2 Nessuno |
-|---|---|---|---|
-| **Inbreeding** | invariato | `breed` riceve `coi × 0.5` | `breed` riceve `coi = 0`; in più si rimuove dal gattino ogni disordine (non in whitelist) che nessun genitore aveva (= il tiro da inbreeding, compreso il 2% minimo) |
-| **Eredità** | invariato | ogni disordine e ogni parte difettosa dei genitori ha il 50% di probabilità di essere bloccata | nessun disordine né parte difettosa passa dai genitori |
+| Asse | 3 Duro (hard mode) | 0 Vanilla | 1 Mite | 2 Nessuno |
+|---|---|---|---|---|
+| **Inbreeding** | `breed` riceve `min(1, coi × 2)` | invariato | `breed` riceve `coi × 0.5` | `breed` riceve `coi = 0`; in più si rimuove dal gattino ogni disordine (non in whitelist) che nessun genitore aveva (= il tiro da inbreeding, compreso il 2% minimo) |
+| **Eredità** | ogni tratto negativo dei genitori ha una **seconda possibilità** di passare (vedi sotto) | invariato | ogni disordine e ogni parte difettosa dei genitori ha il 50% di probabilità di essere bloccata | nessun disordine né parte difettosa passa dai genitori |
+
+Effetto atteso del livello Duro:
+- **Inbreeding:** una coppia con coi 25% si comporta come se avesse coi 50%. I difetti nuovi passano dal 37.5% al 75%, il disordine da inbreeding dal 4% al 14%, e raddoppia anche il malus `−2·coi%` sull'eredità delle parti difettose. Il gattino tiene il coi vero, come negli altri livelli.
+- **Eredità:** i disordini passano circa dal 15% al 27.75% per genitore (`1 − 0.85²`). Le parti difettose passano da `p` a `p + (1 − p)·0.5`.
+- I tratti in whitelist non sono mai amplificati: seguono le regole vanilla.
 
 Preset nel menù:
 - Vanilla: 0/0
 - Assistito: 1/1
 - Libero incrocio: 2/0
 - Genetica perfetta: 2/2
+- Hard mode: 3/3
 
 Cleanse ha 3 modalità: `disorders` (solo disordini), `defects` (solo parti difettose), `all`. Pulisce **tutto** ciò che è negativo, compresi i disordini presi giocando (malattie, eventi), tranne la whitelist.
 
@@ -53,22 +60,30 @@ Cleanse ha 3 modalità: `disorders` (solo disordini), `defects` (solo parti dife
 
 ```
 real_coi = coi
-coi' = coi × {1, 0.5, 0}[inbreeding]
-if heredity > 0:
+coi' = {0: coi, 1: coi × 0.5, 2: 0, 3: min(1, coi × 2)}[inbreeding]
+if heredity in {1, 2}:
     for each parent, each disorder slot, if not whitelisted and (heredity == 2 or rand < 0.5):
-        nascondi lo slot: scambia i byte della stringa con una stringa vuota, poi ripristina
+        nascondi lo slot: scambia i byte della stringa con una stringa locale "None" e metti il livello a 1 (lo slot vuoto del gioco, verificato in S3), poi ripristina stringa e livello
 orig(kitten, A, B, coi', furniture)
 ripristina gli slot dei genitori (sempre, anche se orig fallisce)
 kitten->coi = real_coi                      # il gattino resta "Inbred" e il pedigree è corretto
 if inbreeding == 2:
     rimuovi dal gattino i disordini non in whitelist che non erano in A né in B (lista originale)
-if heredity > 0:
+if heredity in {1, 2}:
     for each slot di parte del corpo del gattino:
         if è un difetto non in whitelist, uguale alla parte di A o di B nello stesso slot,
            and (heredity == 2 or rand < 0.5):
             sostituisci con la parte dell'altro genitore se normale,
             else con la parte simmetrica del gattino se normale,
             else con una parte generata dal gioco (funzione stray bodyparts di Amoeba)
+if heredity == 3:                            # hard mode: seconda possibilità
+    for each genitore P con disordini non in whitelist:
+        if il gattino non ha nessun disordine di P, ha uno slot libero, and rand < 0.15:
+            copia nel gattino un disordine casuale (non in whitelist) di P, con il suo livello
+    for each slot di parte del corpo:
+        if il gattino ha una parte normale, un genitore ha un difetto non in whitelist in quello slot,
+           and rand < 0.5:
+            copia quel difetto nel gattino (se entrambi i genitori ce l'hanno, scegline uno a caso)
 ```
 
 Casi limite accettati:
@@ -99,8 +114,8 @@ Modificare la whitelist dal menù è un lavoro futuro: per ora si modifica il fi
 Overlay Dear ImGui sopra il rendering del gioco (OpenGL via SDL3), copiato dall'approccio di Amoeba (`reference/mewgenics_analysis/cpp/amoeba/amoeba_imgui.cpp`, hook `SDL_GL_SwapWindow` + `SDL_PollEvent`). Si apre e chiude con **F8**.
 
 Contenuto:
-- 2 selettori a 3 livelli;
-- 4 pulsanti preset;
+- 2 selettori a 4 livelli (Duro / Vanilla / Mite / Nessuno);
+- 5 pulsanti preset;
 - selettore della modalità Cleanse e pulsante "Cleanse all cats" con conferma, che mostra quanti gatti e tratti verranno toccati;
 - riga di stato (hook attivo / versione del gioco non supportata).
 

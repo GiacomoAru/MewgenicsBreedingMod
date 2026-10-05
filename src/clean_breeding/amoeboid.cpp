@@ -112,6 +112,10 @@ AmoeboidErrorCode on_attach() {
         if(!SFunctionHookRegistry::resolve_hooks(host_exec_base_va, host_exec_pe_view, 0)) {
             return AmoeboidErrorCode::FailedToResolveSymbol;
         }
+        // Group 1: SDL exports of the exe, located by GetProcAddress
+        if(!SFunctionHookRegistry::resolve_hooks(host_exec_base_va, host_exec_pe_view, 1)) {
+            return AmoeboidErrorCode::FailedToResolveSymbol;
+        }
     }
 
     // Try to install function hooks
@@ -120,12 +124,14 @@ AmoeboidErrorCode on_attach() {
         G.dll_can_self_eject = true;
         if(SFunctionHookRegistry::api_is_present(EFunctionHookProvider::Mewjector)) {
             // Use Mewjector if present for coordinated hooking
-            if(!SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Mewjector, 0)) {
+            if(!SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Mewjector, 0) ||
+               !SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Mewjector, 1)) {
                 return AmoeboidErrorCode::FailedToHook;
             }
             G.dll_can_self_eject = false;
         } else {
-            if(!SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Detours, 0)) {
+            if(!SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Detours, 0) ||
+               !SFunctionHookRegistry::install_hooks(EFunctionHookProvider::Detours, 1)) {
                 return AmoeboidErrorCode::FailedToHook;
             }
         }
