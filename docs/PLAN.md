@@ -95,7 +95,7 @@ Versione del gioco attesa: **1.1.21239**, SHA256 `4127cd6a792ae528bca6f65a8873dd
   - se mancano valori usa i default di DESIGN.md (tutto a 0).
 - [x] Il `config.ini` di riferimento è quello in `mod/CleanBreeding/config.ini` (sezioni `[breeding]`, `[cleanse]`, `[whitelist]`). Non riscriverlo da zero: quello di S1 aveva perso la whitelist ed era salvato con BOM UTF-8, che rompe `GetPrivateProfileStringW`. Va salvato in UTF-8 **senza BOM**, oppure in UTF-16 LE con BOM; `install.ps1` non deve sovrascrivere un `config.ini` già presente.
 - [x] Menù: 2 selettori a 4 livelli (Duro / Vanilla / Mite / Nessuno; valori 3 / 0 / 1 / 2 come in DESIGN.md), 5 pulsanti preset (compreso "Hard mode" 3/3), selettore della modalità Cleanse. Ogni cambio si salva subito nel `.ini`. Il pulsante Cleanse per ora è disabilitato.
-- [ ] Check:
+- [x] Check:
   - [x] lo script di generazione passa i suoi assert;
   - [x] 🛑 nel gioco: un cambio nel menù aggiorna il `.ini`, e riavviando il gioco i valori restano. (Verificato: `.ini` scritto alle 13:24 con `inbreeding=2`; al riavvio il log mostra `Config: inbreeding=2 heredity=0`; l'utente conferma che il menù li mostra.)
 
@@ -195,9 +195,9 @@ Decisione dell'utente del 2026-10-05: il Cleanse non si pubblica, e gli strument
   - Nella suite, il caso "A: EternalYouth (whitelist)" diventa un caso normale di disordine: atteso 0% a livello 2, circa 7.5% a livello 1, circa 27.75% a livello 3.
   - [x] Rilancia la suite (N = 25000): tutto PASS. (Fatto dall'utente il 2026-10-05 15:20-15:21 con Gentle, Off/Normal, Clean e Hardcore: 12 su 12 PASS in tutti. EternalYouth ereditato 7.5% / 15.3% / 0.0% / 27.7%; Cyclops come difetto normale 24.3% / 49.0% / 0.0% / 74.9%.)
 - [x] Il `config.ini` di release (`mod/CleanBreeding/config.ini`) contiene solo `[breeding]` (aggiornato: niente più `[whitelist]`). La sezione `[debug]` resta solo nella copia di test installata in Mewtator, oppure in un file `configs/config.dev.ini` che `install.ps1` copia quando si installa la build di sviluppo.
-- [ ] Check:
+- [x] Check:
   - [x] la build di release compila e la DLL non contiene le stringhe `"Run all tests"`, `"test_resources"`, `"Cleanse"` (controlla con `findstr /c:` o con Python);
-  - 🛑 nel gioco, con la build di release: F8 mostra solo livelli, preset e stato; il breeding funziona;
+  - [x] (confermato dall'utente il 2026-10-05: "tutto perfetto") 🛑 nel gioco, con la build di release: F8 mostra solo livelli, preset e stato; il breeding funziona;
   - [x] la build di sviluppo continua ad avere simulatore e test suite.
 
 **Note S8/S8b (2026-10-05):** il menù e la riga di stato ora vivono anche con versione del gioco non supportata (gli hook SDL, gruppo 1, si installano per primi e sempre; con versione non supportata il menù mostra solo la riga rossa "Inactive"). Il flag `G.mod_active` dice se l'hook di `breed` è attivo. `level_label()` in `config.hpp` dà i nomi dei livelli (2 Off, 1 Reduced, 0 Normal, 3 Increased) a menù, log e report. `scripts/package.ps1` produce `outputs/CleanBreeding-0.1.0.zip` con solo `CleanBreeding/{clean_breeding.dll, config.ini, description.json}`. Il carattere "·" nelle righe del menù è scritto come byte UTF-8: da verificare a vista che il font di ImGui lo mostri.
@@ -229,8 +229,8 @@ Decisione dell'utente del 2026-10-05: nomi più chiari e uniformi, piccole spieg
   - `README.md` con la sezione "How it works": i due regolatori, i 4 livelli con i numeri della tabella di DESIGN.md (in parole semplici), i 5 preset e a chi servono;
   - una nota su cosa la mod **non** tocca: abilità, passive, stat, mutazioni normali, gatti adulti;
   - aggiorna CLAUDE.md e i nomi usati in PLAN e DESIGN, se servono.
-- [ ] Check:
-  - 🛑 l'utente apre il menù (build di release) e conferma che si capisce senza leggere la documentazione;
+- [x] Check:
+  - [x] (confermato dall'utente) 🛑 l'utente apre il menù (build di release) e conferma che si capisce senza leggere la documentazione;
   - nessuna stringa del menù è più larga della finestra a 1280×720;
   - [x] la build di release non contiene "Developer tools", "Simulate", "Run all tests".
 
@@ -245,7 +245,7 @@ Decisione dell'utente del 2026-10-05: nomi più chiari e uniformi, piccole spieg
   - i due regolatori, i 4 livelli e i 5 preset;
   - crediti (polymeric, z3ndroot, MIT).
 - [x] `scripts/package.ps1`: build di **release** (`CB_DEV_TOOLS=OFF`), poi zip di `mod/CleanBreeding/` in `outputs/CleanBreeding-<versione>.zip`.
-- [ ] Check: installazione pulita dallo zip in Mewtator su un'altra copia della cartella mods; il gioco parte e il menù funziona.
+- [x] (fatto: cartella mod svuotata, dati di sviluppo archiviati in `outputs/dev-data-2026-10-05/`, zip estratto; confermato dall'utente) Check: installazione pulita dallo zip in Mewtator su un'altra copia della cartella mods; il gioco parte e il menù funziona.
 
 ## S10. ~~Editor della whitelist~~ (annullato il 2026-10-05: la whitelist è stata tolta del tutto)
 
