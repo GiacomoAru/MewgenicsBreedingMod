@@ -73,7 +73,7 @@ static void draw_menu() {
     const ImVec2 screen = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowSize(ImVec2(std::min(std::max(screen.x * 0.62f, 700.0f), 980.0f), 0.0f), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImVec2(screen.x * 0.5f, screen.y * 0.5f), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    if(ImGui::Begin("Clean Breeding", &g_visible)) {
+    if(ImGui::Begin(MOD_NAME, &g_visible)) {
         if(G.mod_active) {
             ImGui::TextColored(ImVec4(0.35f, 0.85f, 0.35f, 1.0f), "Active Â· Mewgenics %s", EXE_VERSION);
         } else {

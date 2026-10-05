@@ -247,6 +247,41 @@ Decisione dell'utente del 2026-10-05: nomi più chiari e uniformi, piccole spieg
 - [x] `scripts/package.ps1`: build di **release** (`CB_DEV_TOOLS=OFF`), poi zip di `mod/CleanBreeding/` in `outputs/CleanBreeding-<versione>.zip`.
 - [x] (fatto: cartella mod svuotata, dati di sviluppo archiviati in `outputs/dev-data-2026-10-05/`, zip estratto; confermato dall'utente) Check: installazione pulita dallo zip in Mewtator su un'altra copia della cartella mods; il gioco parte e il menù funziona.
 
+## S9b. Rinomina in "Unnatural Selection" (da fare: non ancora eseguito al 2026-10-05)
+
+Decisione dell'utente del 2026-10-05.
+
+- [x] Rinomina:
+  - cartella `mod/CleanBreeding/` in `mod/UnnaturalSelection/`;
+  - target CMake e DLL in `unnatural_selection` (`unnatural_selection.dll`);
+  - `MOD_NAME "Unnatural Selection"`, `MOD_IDENTIFIER "geco.unnatural_selection"`;
+  - titolo della finestra del menù;
+  - `description.json` (`title` "Unnatural Selection", `description` = il summary della mod);
+  - zip in `outputs/UnnaturalSelection-<versione>.zip`;
+  - script `build.ps1`, `install.ps1`, `package.ps1`;
+  - README, CLAUDE.md, DESIGN.md.
+
+  La cartella del codice `src/clean_breeding/` può restare (è solo interna); il preset "Clean" resta "Clean".
+- [x] `install.ps1`: se in Mewtator esiste ancora la vecchia cartella `CleanBreeding`, avvisa (non cancellarla da solo): due DLL della stessa mod caricate insieme si aggancerebbero due volte a `breed`. 🛑 Chiedi all'utente di toglierla.
+- [x] Il `config.ini` installato si porta nella nuova cartella, così le impostazioni dell'utente restano.
+- [x] Check:
+  - build di release e di sviluppo compilano;
+  - il pacchetto contiene `UnnaturalSelection/` con `unnatural_selection.dll`, `config.ini`, `description.json`;
+  - [x] nel gioco: in Mewtator appare "Unnatural Selection", F8 mostra il nuovo titolo, il breeding funziona, e la vecchia mod non è più caricata (controlla `chainloader.log`: una sola DLL della mod). (confermato dall'utente: mod caricata e testata; `chainloader.log`: una sola DLL, `Unnatural Selection loaded (version 1.0.0 ...)`)
+
+## S9c. Pubblicazione v1.0.0
+
+Decisione dell'utente del 2026-10-05: si pubblica. Il repo GitHub è già pubblico e pulito (verificato: niente binari tracciati, niente Steam ID né percorsi personali, nemmeno nella storia). `LICENSE.md` è già aggiornato (MIT: GiacomoAru, polymeric, Z3nd).
+
+- [x] Versione `1.0.0` in `MOD_VERSION`, `description.json` e nel nome dello zip.
+- [x] `description.json`:
+  - `"author": "Geco"` (nome dell'autore: Geco; GiacomoAru è solo l'account GitHub);
+  - `"url": "https://www.nexusmods.com/mewgenics/mods/543"` (pagina Nexus dell'utente; mettila anche nel README e nelle note della Release);
+  - `description` = il summary della mod.
+- [x] `scripts/package.ps1`: lo zip deve contenere, nella cartella `UnnaturalSelection/`, anche `LICENSE.md`, `ATTRIBUTION.md` e `README.md` (obbligo MIT per chi distribuisce la DLL).
+- [x] Ricostruisci il pacchetto di release e controlla il contenuto dello zip. Poi 🛑 l'utente fa una prova finale: installa dallo zip in una cartella `mods` pulita di Mewtator, gioca una notte e verifica che F8 mostri "Active". (fatto; prova finale confermata dall'utente)
+- [ ] Commit, tag `v1.0.0` e push del tag (il repo è dell'utente, che ha già chiesto di pubblicare).
+
 ## S10. ~~Editor della whitelist~~ (annullato il 2026-10-05: la whitelist è stata tolta del tutto)
 
 ## Dopo (non ora)

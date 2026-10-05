@@ -1,10 +1,10 @@
-# Builds clean_breeding.dll.
+# Builds unnatural_selection.dll.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\build.ps1            # development build (CB_DEV_TOOLS=ON)
 #   powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Release   # release build (CB_DEV_TOOLS=OFF)
 #
-# Development: build\ -> outputs\dev\clean_breeding.dll (simulator, test suite, snapshots, Debug menu, [debug] helpers).
-# Release:     build-release\ -> mod\CleanBreeding\clean_breeding.dll (what package.ps1 zips).
+# Development: build\ -> outputs\dev\unnatural_selection.dll (simulator, test suite, snapshots, Developer tools, [debug] helpers).
+# Release:     build-release\ -> mod\UnnaturalSelection\unnatural_selection.dll (what package.ps1 zips).
 #
 # Needs Visual Studio 2022 Build Tools with "Desktop development with C++" (ships CMake).
 
@@ -33,7 +33,7 @@ Write-Host "Using $cmake (CB_DEV_TOOLS=$devTools)"
 
 & $cmake -S $src -B $build -A x64 "-DCB_DEV_TOOLS=$devTools"
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
-& $cmake --build $build --config RelWithDebInfo --parallel --target clean_breeding
+& $cmake --build $build --config RelWithDebInfo --parallel --target unnatural_selection
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 # Unit checks (Debug, so assert() is active)
@@ -44,7 +44,7 @@ foreach ($t in "test_config", "test_breed_logic") {
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
 }
 
-$out = if ($Release) { Join-Path $root "mod\CleanBreeding" } else { Join-Path $root "outputs\dev" }
+$out = if ($Release) { Join-Path $root "mod\UnnaturalSelection" } else { Join-Path $root "outputs\dev" }
 New-Item -ItemType Directory -Force $out | Out-Null
-Copy-Item "$build\clean_breeding\RelWithDebInfo\clean_breeding.dll" $out -Force
-Write-Host "Built $out\clean_breeding.dll"
+Copy-Item "$build\clean_breeding\RelWithDebInfo\unnatural_selection.dll" $out -Force
+Write-Host "Built $out\unnatural_selection.dll"

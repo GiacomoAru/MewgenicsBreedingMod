@@ -1,4 +1,4 @@
-# Clean Breeding: design
+# Unnatural Selection: design
 
 Decisioni prese con l'utente il 2026-10-05. Questo file dice **cosa** fa la mod e **perché**.
 Il **come**, step per step, sta in [PLAN.md](PLAN.md). Non cambiare le decisioni senza chiedere all'utente.

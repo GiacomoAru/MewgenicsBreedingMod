@@ -1,6 +1,8 @@
-# Clean Breeding
+# Unnatural Selection
 
 A Mewgenics mod that lets you tune how breeding passes on disorders and birth defects. Press **F8** in game to open the menu.
+
+Download and page on Nexus Mods: <https://www.nexusmods.com/mewgenics/mods/543>
 
 ## How it works
 
@@ -40,7 +42,7 @@ Active abilities, passives, stats, normal mutations, and cats that are already b
 
 Requires [Mewtator](https://www.nexusmods.com/mewgenics/mods/1) and [Mewjector](https://www.nexusmods.com/mewgenics/mods/218), with "DLL Mod Support" enabled in Mewtator.
 
-1. Unzip `CleanBreeding-<version>.zip` and copy the `CleanBreeding` folder into Mewtator's `mods` folder.
+1. Unzip `UnnaturalSelection-<version>.zip` and copy the `UnnaturalSelection` folder into Mewtator's `mods` folder.
 2. Enable the mod in Mewtator and launch the game from Mewtator.
 
 Supported game version: **1.1.21239**. On any other version the menu shows "Inactive" and the mod changes nothing.
@@ -50,7 +52,7 @@ Supported game version: **1.1.21239**. On any other version the menu shows "Inac
 Needs Visual Studio 2022 Build Tools with the "Desktop development with C++" workload.
 
 ```
-powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Release    # release DLL -> mod\CleanBreeding\
+powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Release    # release DLL -> mod\UnnaturalSelection\
 powershell -ExecutionPolicy Bypass -File scripts\package.ps1           # release build + zip in outputs\
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1             # development build (simulator, test suite) -> outputs\dev\
 ```

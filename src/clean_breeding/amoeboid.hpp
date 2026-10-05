@@ -14,11 +14,11 @@
 
 // Mod information
 
-inline constexpr char MOD_AUTHOR[] = "cicci";
-inline constexpr char MOD_NAME[] = "Clean Breeding";
-inline constexpr char MOD_IDENTIFIER[] = "cicci.clean_breeding";
-inline constexpr char MOD_URL[] = "(no URL yet)";
-inline constexpr char MOD_VERSION[] = "0.1.0";
+inline constexpr char MOD_AUTHOR[] = "Geco";
+inline constexpr char MOD_NAME[] = "Unnatural Selection";
+inline constexpr char MOD_IDENTIFIER[] = "geco.unnatural_selection";
+inline constexpr char MOD_URL[] = "https://www.nexusmods.com/mewgenics/mods/543";
+inline constexpr char MOD_VERSION[] = "1.0.0";
 
 // These addresses were extracted from Mewgenics.exe
 // The script under misc/find_rvas.py can help with recovering these addresses after a game update

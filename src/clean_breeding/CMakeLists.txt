@@ -1,4 +1,4 @@
-project(clean_breeding)
+project(unnatural_selection)
 
 # Development tools (simulator, test suite, snapshots, Debug menu, [debug] test helpers). OFF for the release build.
 option(CB_DEV_TOOLS "Build the development tools" ON)
